@@ -83,7 +83,6 @@ async function gerarListaPDF(){
     await lerPDF(pdfInput.files[0]);
     console.log(textoPDF.substring(0,1500));
 
-extrairMaquinistas(textoPDF);
 
 mostrarListaPDF();
 }
@@ -160,27 +159,84 @@ async function lerPDF(file){
     const bytes = await file.arrayBuffer();
 
     const pdf = await pdfjsLib.getDocument({
-
-        data:bytes
-
+        data: bytes
     }).promise;
 
-    for(let i=1;i<=pdf.numPages;i++){
+    maquinistas = [];
 
-        const pagina = await pdf.getPage(i);
+    for(let pagina=1; pagina<=pdf.numPages; pagina++){
 
-        const texto = await pagina.getTextContent();
+        const page = await pdf.getPage(pagina);
 
-        textoPDF += texto.items
-            .map(item=>item.str)
-            .join(" ");
+        const content = await page.getTextContent();
 
-        textoPDF += "\n";
+        const linhas = {};
+
+        content.items.forEach(item=>{
+
+            const y = Math.round(item.transform[5]);
+
+            if(!linhas[y]){
+                linhas[y] = [];
+            }
+
+            linhas[y].push(item);
+
+        });
+
+        Object.keys(linhas)
+            .sort((a,b)=>b-a)
+            .forEach(y=>{
+
+                const linha = linhas[y]
+                    .sort((a,b)=>a.transform[4]-b.transform[4])
+                    .map(i=>i.str)
+                    .join(" ")
+                    .replace(/\s+/g," ")
+                    .trim();
+
+                processarLinhaPDF(linha);
+
+            });
 
     }
 
+    console.table(maquinistas);
+
 }
 
+
+function processarLinhaPDF(linha){
+
+    const match = linha.match(
+        /^(.+?)\s+([A-Z]{2}\d{3})\s+(.+?)\s+(\d{2}:\d{2})/
+    );
+
+    if(!match) return;
+
+    const posto = match[1].trim();
+    const escala = match[2].trim();
+    const nome = match[3].trim();
+    const entrada = match[4].replace(":","");
+
+    if(
+        nome === "" ||
+        nome.startsWith("APOIO") ||
+        nome.startsWith("TREIN.")
+    ){
+        return;
+    }
+
+    maquinistas.push({
+
+        posto,
+        escala,
+        nome,
+        entrada
+
+    });
+
+}
 /*==================================================
     LEITURA EXCEL
 ==================================================*/
