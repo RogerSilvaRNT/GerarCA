@@ -315,26 +315,21 @@ function extrairMaquinistas(texto){
 
     maquinistas = [];
 
-    const linhas = texto.split(/\n+/);
+    texto = texto
+        .replace(/\r/g," ")
+        .replace(/\n/g," ")
+        .replace(/\s+/g," ");
 
-    for(const linha of linhas){
+    const regex = /([0-9]{2}-[A-Z0-9 ]+(?:-[A-Z0-9 ]+)*)\s+([A-Z]{2}\d{3})\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ.'\- ]+?)\s+(\d{2}:\d{2})/gi;
 
-        const limpa = linha.replace(/\s+/g," ").trim();
+    let item;
 
-        const match = limpa.match(
-            /^(.+?)\s+([A-Z]{2}\d{3})\s+(.+?)\s+(\d{2}:\d{2})\b/
-        );
+    while((item = regex.exec(texto)) !== null){
 
-        if(!match) continue;
+        const nome = item[3].trim();
 
-        const posto = match[1].trim();
-        const escala = match[2].trim();
-        const nome = match[3].trim();
-        const entrada = match[4].replace(":","");
-
-        // Ignora linhas sem nome
         if(
-            nome === "" ||
+            !nome ||
             nome.startsWith("APOIO ESC") ||
             nome.startsWith("TREIN.") ||
             /^\d+$/.test(nome)
@@ -344,10 +339,10 @@ function extrairMaquinistas(texto){
 
         maquinistas.push({
 
-            posto,
-            escala,
+            posto: item[1].trim(),
+            escala: item[2].trim(),
             nome,
-            entrada
+            entrada: item[4].replace(":","")
 
         });
 
@@ -356,7 +351,6 @@ function extrairMaquinistas(texto){
     console.table(maquinistas);
 
 }
-
 /*==================================================
     MOSTRAR LISTA DO PDF
 ==================================================*/
