@@ -315,21 +315,39 @@ function extrairMaquinistas(texto){
 
     maquinistas = [];
 
-    const regex = /(SUZ-\d+|BFU-\d+|LUZ-\d+|BRS-\d+|RIO-\d+|FISCAL PATIO LUZ|SUZ-06 APOIO|RETORNO MÉDICO PSO BOA VISTA)\s+([A-Z]{2}\d{3})\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ ]+?)\s+(\d{2}:\d{2})/g;
+    const linhas = texto.split(/\n+/);
 
-    let item;
+    for(const linha of linhas){
 
-    while((item = regex.exec(texto)) !== null){
+        const limpa = linha.replace(/\s+/g," ").trim();
+
+        const match = limpa.match(
+            /^(.+?)\s+([A-Z]{2}\d{3})\s+(.+?)\s+(\d{2}:\d{2})\b/
+        );
+
+        if(!match) continue;
+
+        const posto = match[1].trim();
+        const escala = match[2].trim();
+        const nome = match[3].trim();
+        const entrada = match[4].replace(":","");
+
+        // Ignora linhas sem nome
+        if(
+            nome === "" ||
+            nome.startsWith("APOIO ESC") ||
+            nome.startsWith("TREIN.") ||
+            /^\d+$/.test(nome)
+        ){
+            continue;
+        }
 
         maquinistas.push({
 
-            posto: item[1].trim(),
-
-            escala: item[2].trim(),
-
-            nome: item[3].trim(),
-
-            entrada: item[4].replace(":","")
+            posto,
+            escala,
+            nome,
+            entrada
 
         });
 
@@ -338,10 +356,6 @@ function extrairMaquinistas(texto){
     console.table(maquinistas);
 
 }
-
-/*==================================================
-    MOSTRAR LISTA DO PDF
-==================================================*/
 
 /*==================================================
     MOSTRAR LISTA DO PDF
