@@ -1,0 +1,67 @@
+body{
+
+    background:#f5f7fa;
+
+}
+
+.card{
+
+    border:none;
+
+    border-radius:12px;
+
+}
+
+.card-header{
+
+    border-top-left-radius:12px !important;
+
+    border-top-right-radius:12px !important;
+
+}
+
+textarea{
+
+    font-family:Consolas, monospace;
+
+    font-size:14px;
+
+    resize:vertical;
+
+    white-space:pre;
+
+}
+
+.btn{
+
+    min-width:140px;
+
+}
+
+.form-control{
+
+    border-radius:8px;
+
+}
+
+#resultado{
+
+    min-height:500px;
+
+}
+
+@media(max-width:768px){
+
+    .btn{
+
+        width:100%;
+
+    }
+
+    .d-flex{
+
+        flex-direction:column;
+
+    }
+
+}
