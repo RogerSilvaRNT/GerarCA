@@ -24,6 +24,8 @@ const resultado = document.getElementById("resultado");
 const bancoInput = document.getElementById("banco");
 const btnBanco = document.getElementById("btnBanco");
 
+const btnPostos = document.getElementById("btnPostos");
+
 
 /*==================================================
     BASES
@@ -59,6 +61,7 @@ btnBanco.addEventListener("click", importarBanco);
 
 bancoCPTM = JSON.parse(localStorage.getItem("bancoCPTM")) || [];
 bancoTrivia = JSON.parse(localStorage.getItem("bancoTrivia")) || [];
+btnPostos.addEventListener("click", gerarPostos);
 
 /*==================================================
     GERAR LISTA PDF
@@ -569,5 +572,57 @@ function buscarNomeGuerraTrivia(nome){
 
     // Se não encontrar, retorna o nome da Gestão
     return nome;
+
+}
+
+/*==================================================
+    GERAR POSTOS
+==================================================*/
+
+function gerarPostos(){
+
+    if(!operadores.length){
+
+        alert("Carregue a Gestão de Escala.");
+        return;
+
+    }
+
+    const postos = {};
+
+    operadores.forEach(op=>{
+
+        const posto = String(op.local || "").trim();
+
+        if(!postos[posto]){
+            postos[posto] = [];
+        }
+
+        postos[posto].push({
+            nome: buscarNomeGuerraTrivia(op.nome),
+            hora: op.horaMaquinista
+        });
+
+    });
+
+    resultado.value = "";
+
+    Object.keys(postos)
+        .sort()
+        .forEach(posto=>{
+
+            resultado.value += posto + "\n";
+
+            postos[posto]
+                .sort((a,b)=>a.hora.localeCompare(b.hora))
+                .forEach(item=>{
+
+                    resultado.value += `${item.nome} ${item.hora}\n`;
+
+                });
+
+            resultado.value += "\n";
+
+        });
 
 }
