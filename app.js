@@ -632,29 +632,30 @@ function gerarPostos(){
 
 function formatarHora(valor){
 
-    // Hora armazenada como número pelo Excel (0.333333, 0.208333...)
-    if(typeof valor === "number"){
-
-        const totalMinutos = Math.round(valor * 24 * 60);
-
-        const horas = String(Math.floor(totalMinutos / 60)).padStart(2,"0");
-        const minutos = String(totalMinutos % 60).padStart(2,"0");
-
-        return horas + minutos;
-
+    if(valor === "" || valor == null){
+        return "";
     }
 
-    // Caso venha como Date
+    const numero = Number(valor);
+
+    if(!isNaN(numero)){
+
+        const segundos = Math.round(numero * 86400);
+
+        const horas = Math.floor(segundos / 3600);
+        const minutos = Math.floor((segundos % 3600) / 60);
+
+        return String(horas).padStart(2,"0") +
+               String(minutos).padStart(2,"0");
+    }
+
     if(valor instanceof Date){
 
         return String(valor.getHours()).padStart(2,"0") +
                String(valor.getMinutes()).padStart(2,"0");
-
     }
 
-    // Caso venha como texto "05:00"
-    return String(valor || "")
+    return String(valor)
         .replace(":","")
         .trim();
-
 }
