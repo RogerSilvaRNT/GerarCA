@@ -85,9 +85,6 @@ console.log(textoPDF.substring(0,1500));
 
 mostrarListaPDF();
 
-window.scrollTo({
-    top: document.body.scrollHeight,
-    behavior: "smooth"
 });
 
 /*==================================================
