@@ -274,11 +274,17 @@ async function lerExcel(file){
 
     dados.forEach(linha=>{
 
-const nome = String(linha[1] || "").trim();          // NOME COMPLETO
-const local = String(linha[2] || "").trim();         // LOCAL
-const entradaHora = String(linha[3] || "").replace(":","").trim();
-const textoMaquinista = String(linha[9] || "").trim();
+        // Colunas da planilha
+        const nome = String(linha[2] || "").trim();
+        const local = String(linha[3] || "").trim();
 
+        const entradaHora = String(linha[4] || "")
+            .replace(":","")
+            .trim();
+
+        const textoMaquinista = String(linha[10] || "").trim();
+
+        // Base utilizada pelo botão GERAR POSTOS
         if(nome && local){
 
             operadoresPostos.push({
@@ -289,25 +295,32 @@ const textoMaquinista = String(linha[9] || "").trim();
 
         }
 
+        // Base utilizada pelo botão CRUZAR DADOS
         if(
             !textoMaquinista ||
             textoMaquinista.startsWith("APOIO") ||
             textoMaquinista.startsWith("LOCOMOTIVA") ||
-            textoMaquinista.startsWith("MQT")
+            textoMaquinista.startsWith("MQT ")
         ){
             return;
         }
 
         const hora = textoMaquinista.match(/(\d{4})$/);
 
-        if(!hora) return;
+        if(!hora){
+            return;
+        }
 
         operadores.push({
 
             nome,
             local,
-            maquinista: textoMaquinista.replace(/\d{4}$/,"").trim(),
+            maquinista: textoMaquinista
+                .replace(/\d{4}$/,"")
+                .trim(),
+
             horaMaquinista: hora[1],
+
             entrada: entradaHora
 
         });
@@ -613,5 +626,31 @@ function gerarPostos(){
             resultado.value += "\n";
 
         });
+
+}
+
+
+function formatarHora(valor){
+
+    if(valor instanceof Date){
+
+        return valor.toLocaleTimeString(
+            "pt-BR",
+            {
+                hour:"2-digit",
+                minute:"2-digit"
+            }
+        ).replace(":","");
+
+    }
+
+    if(typeof valor === "object" && valor?.getHours){
+
+        return String(valor.getHours()).padStart(2,"0") +
+               String(valor.getMinutes()).padStart(2,"0");
+
+    }
+
+    return String(valor || "").replace(":","").trim();
 
 }
