@@ -595,13 +595,17 @@ function gerarPostos(){
     }
 
     const postos = {};
+    const ordemPostos = [];
 
     operadores.forEach(op=>{
 
         const posto = String(op.local || "").trim();
 
+        if(!posto) return;
+
         if(!postos[posto]){
             postos[posto] = [];
+            ordemPostos.push(posto);
         }
 
         postos[posto].push({
@@ -613,22 +617,20 @@ function gerarPostos(){
 
     resultado.value = "";
 
-    Object.keys(postos)
-        .sort()
-        .forEach(posto=>{
+    ordemPostos.forEach(posto=>{
 
-            resultado.value += posto + "\n";
+        resultado.value += posto + "\n";
 
-            postos[posto]
-                .sort((a,b)=>a.hora.localeCompare(b.hora))
-                .forEach(item=>{
+        postos[posto]
+            .sort((a,b)=>a.hora.localeCompare(b.hora))
+            .forEach(item=>{
 
-                    resultado.value += `${item.nome} ${item.hora}\n`;
+                resultado.value += `${item.nome} ${item.hora}\n`;
 
-                });
+            });
 
-            resultado.value += "\n";
+        resultado.value += "\n";
 
-        });
+    });
 
 }
