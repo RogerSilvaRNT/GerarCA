@@ -15,9 +15,9 @@
 
 <body>
 
-<div class="container py-4">
+<div class="container-fluid app-container">
 
-    <div class="card shadow">
+    <div class="card shadow card-principal">
 
         <div class="card-header bg-primary text-white">
 
@@ -27,139 +27,175 @@
 
         </div>
 
-        <div class="card-body">
+        <div class="card-body d-flex flex-column">
 
-            <!-- BANCO DE DADOS -->
+            <!-- PAINÉIS SUPERIORES -->
+            <div class="row g-3 flex-shrink-0">
 
-            <h5 class="mb-3">Banco de Dados</h5>
+                <!-- BANCO -->
+                <div class="col-lg-3 col-md-6">
 
-            <input
-                type="file"
-                id="banco"
-                class="form-control mb-3"
-                accept=".xlsx,.xls">
+                    <div class="card h-100 shadow-sm">
 
-            <button
-                id="btnBanco"
-                class="btn btn-dark w-100 mb-4">
+                        <div class="card-header bg-dark text-white">
+                            Banco de Dados
+                        </div>
 
-                Importar Banco de Dados
+                        <div class="card-body">
 
-            </button>
+                            <input
+                                type="file"
+                                id="banco"
+                                class="form-control mb-3"
+                                accept=".xlsx,.xls">
 
-            <hr>
+                            <button
+                                id="btnBanco"
+                                class="btn btn-dark w-100">
 
-            <!-- CONTROLE DE APRESENTAÇÃO -->
+                                Importar Banco
 
-            <h5 class="mb-3">Controle de Apresentação</h5>
+                            </button>
 
-            <input
-                type="file"
-                id="pdf"
-                class="form-control mb-3"
-                accept=".pdf">
+                        </div>
 
-            <button
-                id="btnPDF"
-                class="btn btn-primary w-100 mb-4">
-
-                Gerar Lista PDF
-
-            </button>
-
-            <hr>
-
-            <!-- GESTÃO -->
-
-            <h5 class="mb-3">Gestão de Escala</h5>
-
-            <input
-                type="file"
-                id="excel"
-                class="form-control mb-3"
-                accept=".xlsx,.xls">
-
-            <button
-                id="btnExcel"
-                class="btn btn-success w-100 mb-4">
-
-                Carregar Gestão
-
-            </button>
-
-            <hr>
-
-            <!-- PROCESSAMENTO -->
-
-            <h5 class="mb-3">Processamento</h5>
-
-            <div class="row g-2 mb-4">
-
-                <div class="col-md-6">
-
-                    <button
-                        id="btnCruzar"
-                        class="btn btn-warning w-100">
-
-                        Cruzar Dados
-
-                    </button>
+                    </div>
 
                 </div>
 
-                <div class="col-md-6">
+                <!-- PDF -->
+                <div class="col-lg-3 col-md-6">
 
-                    <button
-                        id="btnPostos"
-                        class="btn btn-info w-100">
+                    <div class="card h-100 shadow-sm">
 
-                        Gerar Postos
+                        <div class="card-header bg-primary text-white">
+                            Controle de Apresentação
+                        </div>
 
-                    </button>
+                        <div class="card-body">
+
+                            <input
+                                type="file"
+                                id="pdf"
+                                class="form-control mb-3"
+                                accept=".pdf">
+
+                            <button
+                                id="btnPDF"
+                                class="btn btn-primary w-100">
+
+                                Gerar Lista PDF
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- GESTÃO -->
+                <div class="col-lg-3 col-md-6">
+
+                    <div class="card h-100 shadow-sm">
+
+                        <div class="card-header bg-success text-white">
+                            Gestão de Escala
+                        </div>
+
+                        <div class="card-body">
+
+                            <input
+                                type="file"
+                                id="excel"
+                                class="form-control mb-3"
+                                accept=".xlsx,.xls">
+
+                            <button
+                                id="btnExcel"
+                                class="btn btn-success w-100">
+
+                                Carregar Gestão
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- PROCESSAMENTO -->
+                <div class="col-lg-3 col-md-6">
+
+                    <div class="card h-100 shadow-sm">
+
+                        <div class="card-header bg-warning">
+                            Processamento
+                        </div>
+
+                        <div class="card-body d-grid gap-2">
+
+                            <button
+                                id="btnCruzar"
+                                class="btn btn-warning">
+
+                                Cruzar Dados
+
+                            </button>
+
+                            <button
+                                id="btnPostos"
+                                class="btn btn-info">
+
+                                Gerar Postos
+
+                            </button>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
             </div>
 
-            <hr>
-
             <!-- RESULTADO -->
 
-            <label id="secaoResultado" class="fw-bold mb-2">
+            <div class="card shadow-sm mt-3 card-resultado">
 
-                Resultado
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
 
-            </label>
+                    <span>Resultado</span>
 
-            <textarea
-                id="resultado"
-                class="form-control"
-                rows="22"
-                readonly></textarea>
+                    <div>
 
-            <div class="row mt-3">
+                        <button
+                            id="copiar"
+                            class="btn btn-success btn-sm me-2">
 
-                <div class="col-md-6 mb-2">
+                            Copiar
 
-                    <button
-                        id="copiar"
-                        class="btn btn-success w-100">
+                        </button>
 
-                        Copiar
+                        <button
+                            id="limpar"
+                            class="btn btn-danger btn-sm">
 
-                    </button>
+                            Limpar
+
+                        </button>
+
+                    </div>
 
                 </div>
 
-                <div class="col-md-6 mb-2">
+                <div class="card-body resultado-body">
 
-                    <button
-                        id="limpar"
-                        class="btn btn-secondary w-100">
-
-                        Limpar
-
-                    </button>
+                    <textarea
+                        id="resultado"
+                        class="form-control"
+                        readonly></textarea>
 
                 </div>
 
@@ -172,9 +208,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-
 <script src="app.js"></script>
 
 </body>

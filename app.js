@@ -131,30 +131,53 @@ console.table(
 /*==================================================
     CRUZAR DADOS
 ==================================================*/
+/*==================================================
+    CRUZAR DADOS
+==================================================*/
+
 function cruzarDados(){
 
+    if(!operadores.length){
+
+        alert("Carregue a Gestão de Escala.");
+
+        return;
+
+    }
+
     resultado.value = "";
+
     resultadoFinal = [];
 
-    for(const operador of operadores){
-
-        const maquinistaPDF = maquinistas.find(m =>
-            normalizarNome(m.nome) === normalizarNome(operador.maquinista)
-        );
+    operadores.forEach(operador=>{
 
         resultadoFinal.push({
 
             cptm: buscarNomeGuerraCPTM(operador.maquinista),
 
-            hora: maquinistaPDF
-                ? maquinistaPDF.entrada
-                : operador.horaMaquinista,
+            hora: operador.horaMaquinista || operador.entrada,
 
-            trivia: buscarNomeGuerraTrivia(operador.nome)
+            trivia: buscarNomeGuerraTrivia(operador.nome),
+
+            local: operador.local,
+
+            situacao: operador.situacao,
+
+            observacoes: operador.observacoes
 
         });
 
-    }
+    });
+
+    resultadoFinal.sort((a,b)=>{
+
+        if(a.hora !== b.hora){
+            return a.hora.localeCompare(b.hora);
+        }
+
+        return a.cptm.localeCompare(b.cptm);
+
+    });
 
     resultadoFinal.forEach(item=>{
 
@@ -251,86 +274,220 @@ function processarLinhaPDF(linha){
     });
 
 }
+
 /*==================================================
-    LEITURA EXCEL
+    LEITURA EXCEL (UNIVERSAL)
 ==================================================*/
 
 async function lerExcel(file){
 
     const bytes = await file.arrayBuffer();
 
-    const workbook = XLSX.read(bytes);
+    const workbook = XLSX.read(bytes,{type:"array"});
 
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const aba =
+        workbook.SheetNames.find(nome =>
+            ["MANHÃ","MANHA","TARDE","NOITE","GERAL"]
+                .includes(nome.toUpperCase().trim())
+        ) || workbook.SheetNames[0];
+
+    const sheet = workbook.Sheets[aba];
 
     const dados = XLSX.utils.sheet_to_json(sheet,{
         header:1,
-        range:11,
         defval:""
     });
+
+    /*---------------------------------------
+      Localiza automaticamente o cabeçalho
+    ---------------------------------------*/
+
+    let linhaCabecalho = -1;
+
+    for(let i=0;i<dados.length;i++){
+
+        const linha = dados[i].map(v=>String(v||"").trim().toUpperCase());
+
+        if(
+            linha.includes("NOME COMPLETO") &&
+            linha.includes("LOCAL")
+        ){
+            linhaCabecalho = i;
+            break;
+        }
+
+    }
+
+    if(linhaCabecalho === -1){
+
+        alert("Cabeçalho da Gestão não encontrado.");
+
+        return;
+
+    }
+
+    const cab = dados[linhaCabecalho]
+        .map(v=>String(v||"").trim().toUpperCase());
+
+    const localizarColuna = (...nomes) =>
+        cab.findIndex(col => nomes.includes(col));
+
+    const idxNome = localizarColuna("NOME COMPLETO");
+
+    const idxLocal = localizarColuna("LOCAL");
+
+    const idxEntradaHora = localizarColuna(
+        "ENTRADA HORA",
+        "HORA ENTRADA"
+    );
+
+    const idxEntrada = localizarColuna("ENTRADA");
+
+    const idxMaquinista = localizarColuna("MAQUINISTA");
+
+    const idxObs = localizarColuna(
+        "OBSERVAÇÕES",
+        "OBSERVACOES"
+    );
 
     operadores = [];
     operadoresPostos = [];
 
-    dados.forEach(linha=>{
+    for(let i=linhaCabecalho+1;i<dados.length;i++){
 
-        // Colunas da planilha
-        const nome = String(linha[2] || "").trim();
-        const local = String(linha[3] || "").trim();
+        const linha = dados[i];
 
-        const entradaHora = formatarHora(linha[4]);
+        if(!linha.length) continue;
 
-        const textoMaquinista = String(linha[10] || "").trim();
+        const nomeCompleto = String(linha[idxNome] || "").trim();
 
-        // Base utilizada pelo botão GERAR POSTOS
-        if(nome && local){
+        if(!nomeCompleto) continue;
 
-            operadoresPostos.push({
-                nome,
+        const local = idxLocal >= 0
+            ? String(linha[idxLocal] || "").trim()
+            : "";
+
+        const entrada = idxEntradaHora >= 0
+            ? formatarHora(linha[idxEntradaHora])
+            : "";
+
+        const situacao = idxEntrada >= 0
+            ? String(linha[idxEntrada] || "").trim()
+            : "";
+
+        const observacoes = idxObs >= 0
+            ? String(linha[idxObs] || "").trim()
+            : "";
+
+        const texto = idxMaquinista >= 0
+            ? String(linha[idxMaquinista] || "").trim()
+            : "";
+
+        operadoresPostos.push({
+
+            nome: nomeCompleto,
+
+            local,
+
+            hora: entrada
+
+        });
+
+        if(!texto) continue;
+
+        if(
+            /^APOIO/i.test(texto) ||
+            /^LOCOMOTIVA/i.test(texto) ||
+            /^EQUIPE LOCOMOTIVA/i.test(texto) ||
+            /^MQT/i.test(texto)
+        ){
+            continue;
+        }
+
+        const regexNovo = /^(.*?)(?:\s+(\d{2}:\d{2}|\d{4}))?$/;
+
+        const regexAntigo = /([A-ZÀ-Ú'. ]+?)\s+(\d{4})/gi;
+
+        if(texto.includes("/")){
+
+            let item;
+
+            while((item = regexAntigo.exec(texto)) !== null){
+
+                operadores.push({
+
+                    nome: nomeCompleto,
+
+                    nomeCompleto,
+
+                    local,
+
+                    entrada,
+
+                    situacao,
+
+                    maquinista: item[1].trim(),
+
+                    horaMaquinista: item[2],
+
+                    observacoes
+
+                });
+
+            }
+
+        }else{
+
+            let maquinista = texto;
+            let hora = "";
+
+            const partes = texto.match(regexNovo);
+
+            if(partes){
+
+                maquinista = partes[1].trim();
+
+                if(partes[2]){
+                    hora = partes[2].replace(":","");
+                }
+
+            }
+
+            operadores.push({
+
+                nome: nomeCompleto,
+
+                nomeCompleto,
+
                 local,
-                hora: entradaHora
+
+                entrada,
+
+                situacao,
+
+                maquinista,
+
+                horaMaquinista: hora,
+
+                observacoes
+
             });
 
         }
 
-        // Base utilizada pelo botão CRUZAR DADOS
-        if(
-            !textoMaquinista ||
-            textoMaquinista.startsWith("APOIO") ||
-            textoMaquinista.startsWith("LOCOMOTIVA") ||
-            textoMaquinista.startsWith("MQT ")
-        ){
-            return;
-        }
-
-        const hora = textoMaquinista.match(/(\d{4})$/);
-
-        if(!hora){
-            return;
-        }
-
-        operadores.push({
-
-            nome,
-            local,
-            maquinista: textoMaquinista
-                .replace(/\d{4}$/,"")
-                .trim(),
-
-            horaMaquinista: hora[1],
-
-            entrada: entradaHora
-
-        });
-
-    });
+    }
 
     resultado.value =
 `Gestão carregada.
 
+Aba: ${aba}
+
 Operadores: ${operadores.length}
 
 Postos: ${operadoresPostos.length}`;
+
+    console.table(operadoresPostos);
+    console.table(operadores);
 
 }
 /*==================================================
@@ -630,30 +787,47 @@ function gerarPostos(){
 
 function formatarHora(valor){
 
-    if(valor === "" || valor == null){
+    if(valor == null || valor === "")
         return "";
+
+    // Hora vinda do Excel (0.25, 0.5...)
+    if(typeof valor === "number"){
+
+        const total = Math.round(valor * 86400);
+
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+
+        return String(h).padStart(2,"0") +
+               String(m).padStart(2,"0");
     }
 
-    const numero = Number(valor);
-
-    if(!isNaN(numero)){
-
-        const segundos = Math.round(numero * 86400);
-
-        const horas = Math.floor(segundos / 3600);
-        const minutos = Math.floor((segundos % 3600) / 60);
-
-        return String(horas).padStart(2,"0") +
-               String(minutos).padStart(2,"0");
-    }
-
+    // Date do JavaScript
     if(valor instanceof Date){
 
         return String(valor.getHours()).padStart(2,"0") +
                String(valor.getMinutes()).padStart(2,"0");
     }
 
-    return String(valor)
-        .replace(":","")
-        .trim();
+    // Objeto Time lido pelo SheetJS
+    if(typeof valor === "object"){
+
+        if("h" in valor && "m" in valor){
+
+            return String(valor.h).padStart(2,"0") +
+                   String(valor.m).padStart(2,"0");
+        }
+
+    }
+
+    const texto = String(valor).trim();
+
+    const hhmm = texto.match(/^(\d{1,2}):(\d{2})/);
+
+    if(hhmm){
+
+        return hhmm[1].padStart(2,"0") + hhmm[2];
+    }
+
+    return texto.replace(":","");
 }
