@@ -85,12 +85,10 @@ console.log(textoPDF.substring(0,1500));
 
 mostrarListaPDF();
 
-resultado.scrollIntoView({
+document.getElementById("secaoResultado").scrollIntoView({
     behavior: "smooth",
     block: "start"
 });
-
-resultado.focus();
 
 /*==================================================
     CARREGAR GESTÃO
