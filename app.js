@@ -69,7 +69,6 @@ async function gerarListaPDF(){
     if(!pdfInput.files.length){
 
         alert("Selecione o PDF.");
-
         return;
 
     }
@@ -81,12 +80,17 @@ async function gerarListaPDF(){
     maquinistas = [];
 
     await lerPDF(pdfInput.files[0]);
-console.log(textoPDF.substring(0,1500));
 
-mostrarListaPDF();
+    console.log(textoPDF.substring(0,1500));
 
-});
+    mostrarListaPDF();
 
+    window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth"
+    });
+
+}
 /*==================================================
     CARREGAR GESTÃO
 ==================================================*/
