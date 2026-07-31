@@ -261,30 +261,34 @@ async function lerExcel(file){
 
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
+    // Lê a planilha por índice de coluna
     const dados = XLSX.utils.sheet_to_json(sheet,{
-        range: 9,
-        defval: ""
+        header:1,
+        range:10,
+        defval:""
     });
 
     operadores = [];
 
     dados.forEach(linha=>{
 
-        const textoMaquinista = String(
-            linha["Maquinista"] ||
-            linha["MAQUINISTA"] ||
-            ""
-        ).trim();
+        const nome = String(linha[2] || "").trim();          // NOME COMPLETO
+        const local = String(linha[3] || "").trim();         // PRIMEIRO LOCAL
+        const entradaHora = String(linha[4] || "")
+            .replace(":","")
+            .trim();
 
-// Ignora linhas que não possuem um maquinista CPTM válido
-if(
-    !/\d{4}$/.test(textoMaquinista) ||
-    textoMaquinista.startsWith("APOIO") ||
-    textoMaquinista.startsWith("LOCOMOTIVA") ||
-    textoMaquinista.startsWith("MQT ")
-){
-    return;
-}
+        const textoMaquinista = String(linha[10] || "").trim();
+
+        // Ignora linhas sem maquinista válido
+        if(
+            !/\d{4}$/.test(textoMaquinista) ||
+            textoMaquinista.startsWith("APOIO") ||
+            textoMaquinista.startsWith("LOCOMOTIVA") ||
+            textoMaquinista.startsWith("MQT ")
+        ){
+            return;
+        }
 
         let nomeMaquinista = textoMaquinista;
         let horaMaquinista = "";
@@ -303,34 +307,17 @@ if(
 
         operadores.push({
 
-            nome:
-                linha["Nome"] ||
-                linha["NOME"] ||
-                linha["NOME COMPLETO"] ||
-                "",
-
+            nome,
+            local,
             maquinista: nomeMaquinista,
-
-            horaMaquinista: horaMaquinista,
-
-            entrada:
-                String(
-                    linha["Entrada"] ||
-                    linha["ENTRADA"] ||
-                    linha["ENTRADA HORA"] ||
-                    ""
-                ).replace(":",""),
-
-            local:
-                linha["Local"] ||
-                linha["LOCAL"] ||
-                ""
+            horaMaquinista,
+            entrada: entradaHora
 
         });
 
     });
 
-    console.table(operadores.slice(0,10));
+    console.table(operadores);
 
 }
 /*==================================================
