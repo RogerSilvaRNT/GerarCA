@@ -111,15 +111,19 @@ async function carregarGestao(){
 
     await lerExcel(excelInput.files[0]);
 
-    resultado.value =
+resultado.value =
 `Gestão carregada.
 
 Operadores encontrados: ${operadores.length}`;
 
-    console.table(operadores);
-
-}
-
+console.table(
+    operadores.map(op => ({
+        nome: op.nome,
+        local: op.local,
+        maquinista: op.maquinista,
+        hora: op.horaMaquinista
+    }))
+);
 /*==================================================
     CRUZAR DADOS
 ==================================================*/
