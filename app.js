@@ -43,6 +43,8 @@ let bancoCPTM = [];
 
 let bancoTrivia = [];
 
+let operadoresPostos = [];
+
 /*==================================================
     EVENTOS
 ==================================================*/
@@ -261,63 +263,65 @@ async function lerExcel(file){
 
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    // Lê a planilha por índice de coluna
     const dados = XLSX.utils.sheet_to_json(sheet,{
         header:1,
-        range:10,
+        range:11,
         defval:""
     });
 
     operadores = [];
+    operadoresPostos = [];
 
     dados.forEach(linha=>{
 
-        const nome = String(linha[2] || "").trim();          // NOME COMPLETO
-        const local = String(linha[3] || "").trim();         // PRIMEIRO LOCAL
-        const entradaHora = String(linha[4] || "")
-            .replace(":","")
-            .trim();
+const nome = String(linha[1] || "").trim();          // NOME COMPLETO
+const local = String(linha[2] || "").trim();         // LOCAL
+const entradaHora = String(linha[3] || "").replace(":","").trim();
+const textoMaquinista = String(linha[9] || "").trim();
+
+        if(nome && local){
+
+            operadoresPostos.push({
+                nome,
+                local,
+                hora: entradaHora
+            });
+
+        }
 
         const textoMaquinista = String(linha[10] || "").trim();
 
-        // Ignora linhas sem maquinista válido
         if(
-            !/\d{4}$/.test(textoMaquinista) ||
+            !textoMaquinista ||
             textoMaquinista.startsWith("APOIO") ||
             textoMaquinista.startsWith("LOCOMOTIVA") ||
-            textoMaquinista.startsWith("MQT ")
+            textoMaquinista.startsWith("MQT")
         ){
             return;
         }
 
-        let nomeMaquinista = textoMaquinista;
-        let horaMaquinista = "";
-
         const hora = textoMaquinista.match(/(\d{4})$/);
 
-        if(hora){
-
-            horaMaquinista = hora[1];
-
-            nomeMaquinista = textoMaquinista
-                .replace(/\d{4}$/,"")
-                .trim();
-
-        }
+        if(!hora) return;
 
         operadores.push({
 
             nome,
             local,
-            maquinista: nomeMaquinista,
-            horaMaquinista,
+            maquinista: textoMaquinista.replace(/\d{4}$/,"").trim(),
+            horaMaquinista: hora[1],
             entrada: entradaHora
 
         });
 
     });
 
-    console.table(operadores);
+    resultado.value =
+`Gestão carregada.
+
+Operadores: ${operadores.length}
+
+Postos: ${operadoresPostos.length}`;
 
 }
 /*==================================================
@@ -574,50 +578,42 @@ function buscarNomeGuerraTrivia(nome){
 
 function gerarPostos(){
 
-    if(!operadores.length){
-
+    if(!operadoresPostos.length){
         alert("Carregue a Gestão de Escala.");
         return;
-
     }
 
-    const postos = {};
-    const ordemPostos = [];
+    const grupos = {};
 
-    operadores.forEach(op=>{
+    operadoresPostos.forEach(op=>{
 
-        const posto = String(op.local || "").trim();
-
-        if(!posto) return;
-
-        if(!postos[posto]){
-            postos[posto] = [];
-            ordemPostos.push(posto);
+        if(!grupos[op.local]){
+            grupos[op.local] = [];
         }
 
-        postos[posto].push({
-            nome: buscarNomeGuerraTrivia(op.nome),
-            hora: op.horaMaquinista
-        });
+        grupos[op.local].push(op);
 
     });
 
     resultado.value = "";
 
-    ordemPostos.forEach(posto=>{
+    Object.keys(grupos)
+        .sort()
+        .forEach(local=>{
 
-        resultado.value += posto + "\n";
+            resultado.value += local + "\n";
 
-        postos[posto]
-            .sort((a,b)=>a.hora.localeCompare(b.hora))
-            .forEach(item=>{
+            grupos[local]
+                .sort((a,b)=>a.hora.localeCompare(b.hora))
+                .forEach(op=>{
 
-                resultado.value += `${item.nome} ${item.hora}\n`;
+                    resultado.value +=
+`${buscarNomeGuerraTrivia(op.nome)} ${op.hora}\n`;
 
-            });
+                });
 
-        resultado.value += "\n";
+            resultado.value += "\n";
 
-    });
+        });
 
 }
