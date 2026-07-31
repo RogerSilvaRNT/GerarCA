@@ -85,9 +85,9 @@ console.log(textoPDF.substring(0,1500));
 
 mostrarListaPDF();
 
-document.getElementById("secaoResultado").scrollIntoView({
-    behavior: "smooth",
-    block: "start"
+window.scrollTo({
+    top: document.body.scrollHeight,
+    behavior: "smooth"
 });
 
 /*==================================================
