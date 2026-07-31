@@ -278,9 +278,7 @@ async function lerExcel(file){
         const nome = String(linha[2] || "").trim();
         const local = String(linha[3] || "").trim();
 
-        const entradaHora = String(linha[4] || "")
-            .replace(":","")
-            .trim();
+        const entradaHora = formatarHora(linha[4]);
 
         const textoMaquinista = String(linha[10] || "").trim();
 
