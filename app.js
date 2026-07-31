@@ -81,11 +81,16 @@ async function gerarListaPDF(){
     maquinistas = [];
 
     await lerPDF(pdfInput.files[0]);
-    console.log(textoPDF.substring(0,1500));
-
+console.log(textoPDF.substring(0,1500));
 
 mostrarListaPDF();
-}
+
+resultado.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+});
+
+resultado.focus();
 
 /*==================================================
     CARREGAR GESTÃO
