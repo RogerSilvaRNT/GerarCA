@@ -67,29 +67,18 @@ bancoTrivia = JSON.parse(localStorage.getItem("bancoTrivia")) || [];
 async function gerarListaPDF(){
 
     if(!pdfInput.files.length){
-
         alert("Selecione o PDF.");
         return;
-
     }
 
     resultado.value = "Lendo PDF...\n";
 
     textoPDF = "";
-
     maquinistas = [];
 
     await lerPDF(pdfInput.files[0]);
 
-    console.log(textoPDF.substring(0,1500));
-
     mostrarListaPDF();
-
-    window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth"
-    });
-
 }
 /*==================================================
     CARREGAR GESTÃO
