@@ -289,8 +289,6 @@ const textoMaquinista = String(linha[9] || "").trim();
 
         }
 
-        const textoMaquinista = String(linha[10] || "").trim();
-
         if(
             !textoMaquinista ||
             textoMaquinista.startsWith("APOIO") ||
