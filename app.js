@@ -79,6 +79,16 @@ async function gerarListaPDF(){
     await lerPDF(pdfInput.files[0]);
 
     mostrarListaPDF();
+
+    setTimeout(() => {
+
+        window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: "smooth"
+        });
+
+    }, 100);
+
 }
 /*==================================================
     CARREGAR GESTÃO
