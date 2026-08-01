@@ -25,6 +25,7 @@ const bancoInput = document.getElementById("banco");
 const btnBanco = document.getElementById("btnBanco");
 
 const btnPostos = document.getElementById("btnPostos");
+const btnRendicoes = document.getElementById("btnRendicoes");
 
 
 /*==================================================
@@ -45,6 +46,8 @@ let bancoTrivia = [];
 
 let operadoresPostos = [];
 
+let turnoAtual = "";
+
 /*==================================================
     EVENTOS
 ==================================================*/
@@ -64,6 +67,8 @@ btnBanco.addEventListener("click", importarBanco);
 bancoCPTM = JSON.parse(localStorage.getItem("bancoCPTM")) || [];
 bancoTrivia = JSON.parse(localStorage.getItem("bancoTrivia")) || [];
 btnPostos.addEventListener("click", gerarPostos);
+
+btnRendicoes.addEventListener("click", gerarRendicoes);
 
 /*==================================================
     GERAR LISTA PDF
@@ -128,9 +133,6 @@ console.table(
 );
 
 }  
-/*==================================================
-    CRUZAR DADOS
-==================================================*/
 /*==================================================
     CRUZAR DADOS
 ==================================================*/
@@ -290,6 +292,7 @@ async function lerExcel(file){
             ["MANHÃ","MANHA","TARDE","NOITE","GERAL"]
                 .includes(nome.toUpperCase().trim())
         ) || workbook.SheetNames[0];
+        turnoAtual = aba.toUpperCase().trim();
 
     const sheet = workbook.Sheets[aba];
 
@@ -343,7 +346,10 @@ async function lerExcel(file){
 
     const idxEntrada = localizarColuna("ENTRADA");
 
-    const idxMaquinista = localizarColuna("MAQUINISTA");
+    const idxMaquinista = localizarColuna(
+    "MAQUINISTA CPTM",
+    "MAQUINISTA"
+);
 
     const idxObs = localizarColuna(
         "OBSERVAÇÕES",
@@ -830,4 +836,295 @@ function formatarHora(valor){
     }
 
     return texto.replace(":","");
+}
+
+/*==================================================
+    GERAR RENDIÇÕES
+==================================================*/
+/*==================================================
+    GERAR RENDIÇÕES
+==================================================*/
+
+function gerarRendicoes(){
+
+    if(!operadoresPostos.length){
+
+        alert("Carregue a Gestão de Escala.");
+
+        return;
+
+    }
+
+    // Agrupa operadores por LOCAL
+    const postos = {};
+
+    operadoresPostos.forEach(op=>{
+
+        const local = String(op.local)
+            .trim()
+            .toUpperCase();
+
+        if(!local) return;
+
+        if(!postos[local]){
+
+            postos[local] = [];
+
+        }
+
+        postos[local].push(op);
+
+    });
+
+    resultado.value = "";
+
+    // Processa cada posto
+    Object.keys(postos)
+        .sort()
+        .forEach(local=>{
+
+            const lista = postos[local]
+                .sort((a,b)=>a.hora.localeCompare(b.hora));
+
+            // Agrupa por horário
+            const horarios = {};
+
+            lista.forEach(op=>{
+
+                if(!horarios[op.hora]){
+
+                    horarios[op.hora] = [];
+
+                }
+
+                horarios[op.hora].push(op);
+
+            });
+
+            const listaHorarios = Object.keys(horarios).sort();
+
+            const totalEquipes = Math.ceil(lista.length / 10);
+
+            const equipes = [];
+
+            for(let i=0;i<totalEquipes;i++){
+
+                equipes.push([]);
+
+            }
+
+            let equipeAtual = 0;
+
+            while(true){
+
+                let adicionou = false;
+
+                for(const hora of listaHorarios){
+
+                    if(horarios[hora].length){
+
+                        equipes[equipeAtual].push(
+                            horarios[hora].shift()
+                        );
+
+                        equipeAtual++;
+
+                        if(equipeAtual >= equipes.length){
+
+                            equipeAtual = 0;
+
+                        }
+
+                        adicionou = true;
+
+                    }
+
+                }
+
+                if(!adicionou){
+
+                    break;
+
+                }
+
+            }
+
+            // Escreve no Resultado
+
+            equipes.forEach((equipe,index)=>{
+
+                resultado.value +=
+`${local}-${String(index+1).padStart(2,"0")}
+`;
+
+                equipe.forEach(op=>{
+
+                    resultado.value +=
+`${buscarNomeGuerraTrivia(op.nome)} ${op.hora}
+`;
+
+                });
+
+                resultado.value += "\n";
+
+            });
+
+        });
+
+    //=========================
+    // GERAR EXCEL
+    //=========================
+
+    const linhas = resultado.value
+        .trim()
+        .split("\n")
+        .map(linha=>[linha]);
+
+    const wb = XLSX.utils.book_new();
+
+    const ws = XLSX.utils.aoa_to_sheet(linhas);
+
+    ws["!cols"] = [
+        { wch: 50 }
+    ];
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "Rendições"
+    );
+
+    XLSX.writeFile(
+        wb,
+        "Rendicoes.xlsx"
+    );
+
+}
+function exportarRendicoesExcel(postos){
+
+    const wb = XLSX.utils.book_new();
+
+    Object.keys(postos)
+        .sort()
+        .forEach(local=>{
+
+            const lista = postos[local]
+                .sort((a,b)=>a.hora.localeCompare(b.hora));
+
+            // Agrupa por horário
+            const horarios = {};
+
+            lista.forEach(op=>{
+
+                if(!horarios[op.hora])
+                    horarios[op.hora]=[];
+
+                horarios[op.hora].push(op);
+
+            });
+
+            const listaHorarios = Object.keys(horarios).sort();
+
+            const totalEquipes = Math.ceil(lista.length/10);
+
+            const equipes=[];
+
+            for(let i=0;i<totalEquipes;i++)
+                equipes.push([]);
+
+            let equipeAtual=0;
+
+            while(true){
+
+                let adicionou=false;
+
+                for(const hora of listaHorarios){
+
+                    if(horarios[hora].length){
+
+                        equipes[equipeAtual].push(
+                            horarios[hora].shift()
+                        );
+
+                        equipeAtual++;
+
+                        if(equipeAtual>=equipes.length)
+                            equipeAtual=0;
+
+                        adicionou=true;
+
+                    }
+
+                }
+
+                if(!adicionou)
+                    break;
+
+            }
+
+            const dados=[];
+
+            equipes.forEach((equipe,index)=>{
+
+                dados.push([`${local}-${String(index+1).padStart(2,"0")}`]);
+
+                equipe.forEach(op=>{
+
+                    dados.push([
+                        buscarNomeGuerraTrivia(op.nome),
+                        op.hora
+                    ]);
+
+                });
+
+                dados.push([]);
+
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(dados);
+
+            ws["!cols"]=[
+                {wch:35},
+                {wch:10}
+            ];
+
+            XLSX.utils.book_append_sheet(
+                wb,
+                ws,
+                local.substring(0,31)
+            );
+
+        });
+
+//========================
+// Nome do arquivo
+//========================
+
+let nomeArquivo = "Rendição";
+
+switch(turnoAtual){
+
+    case "MANHÃ":
+    case "MANHA":
+        nomeArquivo = "Rendição Manhã";
+        break;
+
+    case "TARDE":
+        nomeArquivo = "Rendição Tarde";
+        break;
+
+    case "NOITE":
+        nomeArquivo = "Rendição Noite";
+        break;
+
+    default:
+        nomeArquivo = "Rendição";
+
+}
+
+XLSX.writeFile(
+    wb,
+    `${nomeArquivo}.xlsx`
+);
+
 }
