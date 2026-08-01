@@ -27,6 +27,10 @@ const btnBanco = document.getElementById("btnBanco");
 const btnPostos = document.getElementById("btnPostos");
 const btnRendicoes = document.getElementById("btnRendicoes");
 
+const btnMonitoria = document.getElementById("btnMonitoria");
+
+btnMonitoria.addEventListener("click", gerarMonitoria);
+
 
 /*==================================================
     BASES
@@ -48,27 +52,124 @@ let operadoresPostos = [];
 
 let turnoAtual = "";
 
+let operadoresMonitoria = [];
+
+let operadoresApoio = [];
+
+let operadoresIgnorados = [];
+
+let operadoresSemMonitoria = [];
+
+let maquinistasSemOperador = [];
+
+let dadosExcel = [];
+
+
 /*==================================================
     EVENTOS
 ==================================================*/
 
-btnPDF.addEventListener("click", gerarListaPDF);
+//======================
+// BANCO
+//======================
 
-btnExcel.addEventListener("click", carregarGestao);
+btnBanco.addEventListener("click",()=>{
 
-btnCruzar.addEventListener("click", cruzarDados);
+    bancoInput.click();
 
-btnCopiar.addEventListener("click", copiarResultado);
+});
 
-btnLimpar.addEventListener("click", limparTudo);
+bancoInput.addEventListener("change",()=>{
 
-btnBanco.addEventListener("click", importarBanco);
+    if(bancoInput.files.length){
 
-bancoCPTM = JSON.parse(localStorage.getItem("bancoCPTM")) || [];
-bancoTrivia = JSON.parse(localStorage.getItem("bancoTrivia")) || [];
-btnPostos.addEventListener("click", gerarPostos);
+        importarBanco();
 
-btnRendicoes.addEventListener("click", gerarRendicoes);
+        document.getElementById("statusBanco").textContent =
+        "Carregado";
+
+        document.getElementById("statusBanco").className =
+        "fw-bold text-success";
+
+    }
+
+});
+
+//======================
+// PDF
+//======================
+
+btnPDF.addEventListener("click",()=>{
+
+    pdfInput.click();
+
+});
+
+pdfInput.addEventListener("change",()=>{
+
+    if(pdfInput.files.length){
+
+        gerarListaPDF();
+
+    }
+
+});
+
+//======================
+// GESTÃO
+//======================
+
+btnExcel.addEventListener("click",()=>{
+
+    excelInput.click();
+
+});
+
+excelInput.addEventListener("change",()=>{
+
+    if(excelInput.files.length){
+
+        carregarGestao();
+
+        document.getElementById("statusGestao").textContent =
+        "Carregada";
+
+        document.getElementById("statusGestao").className =
+        "fw-bold text-success";
+
+    }
+
+});
+
+//======================
+// PROCESSAMENTO
+//======================
+
+btnCruzar.addEventListener("click",cruzarDados);
+
+btnPostos.addEventListener("click",gerarPostos);
+
+btnRendicoes.addEventListener("click",gerarRendicoes);
+
+btnMonitoria.addEventListener("click",gerarMonitoria);
+
+//======================
+// RESULTADO
+//======================
+
+btnCopiar.addEventListener("click",copiarResultado);
+
+btnLimpar.addEventListener("click",limparTudo);
+
+//======================
+// BANCO LOCAL
+//======================
+
+bancoCPTM =
+JSON.parse(localStorage.getItem("bancoCPTM")) || [];
+
+bancoTrivia =
+JSON.parse(localStorage.getItem("bancoTrivia")) || [];
 
 /*==================================================
     GERAR LISTA PDF
@@ -89,6 +190,12 @@ async function gerarListaPDF(){
     await lerPDF(pdfInput.files[0]);
 
     mostrarListaPDF();
+
+    document.getElementById("statusPDF").textContent =
+`${maquinistas.length} registros`;
+
+document.getElementById("statusPDF").className =
+"fw-bold text-success";
 
     setTimeout(() => {
 
@@ -116,23 +223,35 @@ async function carregarGestao(){
 
     operadores = [];
 
+    operadoresPostos = [];
+
+    operadoresMonitoria = [];
+
+    operadoresApoio = [];
+
+    operadoresIgnorados = [];
+
     await lerExcel(excelInput.files[0]);
 
-resultado.value =
-`Gestão carregada.
+    console.table(
+        operadores.map(op=>({
+            nome: op.nome,
+            local: op.local,
+            maquinista: op.maquinista,
+            hora: op.horaMaquinista
+        }))
+    );
 
-Operadores encontrados: ${operadores.length}`;
+    document.getElementById("statusGestao").textContent =
+        `${operadoresPostos.length} operadores`;
 
-console.table(
-    operadores.map(op => ({
-        nome: op.nome,
-        local: op.local,
-        maquinista: op.maquinista,
-        hora: op.horaMaquinista
-    }))
-);
+    document.getElementById("statusGestao").className =
+        "fw-bold text-success";
 
-}  
+    document.getElementById("statusTurno").textContent =
+        turnoAtual;
+
+}
 /*==================================================
     CRUZAR DADOS
 ==================================================*/
@@ -292,7 +411,8 @@ async function lerExcel(file){
             ["MANHÃ","MANHA","TARDE","NOITE","GERAL"]
                 .includes(nome.toUpperCase().trim())
         ) || workbook.SheetNames[0];
-        turnoAtual = aba.toUpperCase().trim();
+
+    turnoAtual = aba.toUpperCase().trim();
 
     const sheet = workbook.Sheets[aba];
 
@@ -300,10 +420,6 @@ async function lerExcel(file){
         header:1,
         defval:""
     });
-
-    /*---------------------------------------
-      Localiza automaticamente o cabeçalho
-    ---------------------------------------*/
 
     let linhaCabecalho = -1;
 
@@ -315,13 +431,13 @@ async function lerExcel(file){
             linha.includes("NOME COMPLETO") &&
             linha.includes("LOCAL")
         ){
-            linhaCabecalho = i;
+            linhaCabecalho=i;
             break;
         }
 
     }
 
-    if(linhaCabecalho === -1){
+    if(linhaCabecalho==-1){
 
         alert("Cabeçalho da Gestão não encontrado.");
 
@@ -329,112 +445,158 @@ async function lerExcel(file){
 
     }
 
-    const cab = dados[linhaCabecalho]
+    const cab=dados[linhaCabecalho]
         .map(v=>String(v||"").trim().toUpperCase());
 
-    const localizarColuna = (...nomes) =>
-        cab.findIndex(col => nomes.includes(col));
+    const localizarColuna=(...nomes)=>
+        cab.findIndex(col=>nomes.includes(col));
 
-    const idxNome = localizarColuna("NOME COMPLETO");
+    const idxNome=localizarColuna("NOME COMPLETO");
+    const idxLocal=localizarColuna("LOCAL");
+    const idxEntradaHora=localizarColuna("ENTRADA HORA","HORA ENTRADA");
+    const idxEntrada=localizarColuna("ENTRADA");
+    const idxMaquinista=localizarColuna("MAQUINISTA CPTM","MAQUINISTA");
+    const idxObs=localizarColuna("OBSERVAÇÕES","OBSERVACOES");
 
-    const idxLocal = localizarColuna("LOCAL");
-
-    const idxEntradaHora = localizarColuna(
-        "ENTRADA HORA",
-        "HORA ENTRADA"
-    );
-
-    const idxEntrada = localizarColuna("ENTRADA");
-
-    const idxMaquinista = localizarColuna(
-    "MAQUINISTA CPTM",
-    "MAQUINISTA"
-);
-
-    const idxObs = localizarColuna(
-        "OBSERVAÇÕES",
-        "OBSERVACOES"
-    );
-
-    operadores = [];
-    operadoresPostos = [];
+    operadores=[];
+    operadoresPostos=[];
+    operadoresMonitoria=[];
+    operadoresApoio=[];
+    operadoresIgnorados=[];
 
     for(let i=linhaCabecalho+1;i<dados.length;i++){
 
-        const linha = dados[i];
+        const linha=dados[i];
 
         if(!linha.length) continue;
 
-        const nomeCompleto = String(linha[idxNome] || "").trim();
+        const nomeCompleto=String(linha[idxNome]||"").trim();
 
         if(!nomeCompleto) continue;
 
-        const local = idxLocal >= 0
-            ? String(linha[idxLocal] || "").trim()
+        const local=idxLocal>=0
+            ? String(linha[idxLocal]||"").trim()
             : "";
 
-        const entrada = idxEntradaHora >= 0
+        const entrada=idxEntradaHora>=0
             ? formatarHora(linha[idxEntradaHora])
             : "";
 
-        const situacao = idxEntrada >= 0
-            ? String(linha[idxEntrada] || "").trim()
+        const situacao=idxEntrada>=0
+            ? String(linha[idxEntrada]||"").trim()
             : "";
 
-        const observacoes = idxObs >= 0
-            ? String(linha[idxObs] || "").trim()
+        const observacoes=idxObs>=0
+            ? String(linha[idxObs]||"").trim()
             : "";
 
-        const texto = idxMaquinista >= 0
-            ? String(linha[idxMaquinista] || "").trim()
+        const texto=idxMaquinista>=0
+            ? String(linha[idxMaquinista]||"").trim()
             : "";
 
-        operadoresPostos.push({
+        const localMaiusculo=local.toUpperCase();
 
-            nome: nomeCompleto,
+        let grupo="";
 
-            local,
+        if(localMaiusculo==="SUZ") grupo="SUZ";
+        else if(localMaiusculo==="BAS") grupo="BAS";
+        else if(localMaiusculo==="EGO") grupo="EGO";
 
-            hora: entrada
+        const operador={
 
-        });
+    nome: nomeCompleto,
+
+    local,
+
+    grupo,
+
+    posto: local,
+
+    hora: entrada,
+
+    entrada,
+
+    situacao,
+
+    observacoes
+
+};
+
+        if(
+
+            localMaiusculo.includes("CCM") ||
+
+            localMaiusculo.includes("AUS") ||
+
+            localMaiusculo.includes("RETORNO") ||
+
+            localMaiusculo.includes("PSO") ||
+
+            localMaiusculo.includes("FISCAL")
+
+        ){
+
+            operadoresIgnorados.push(operador);
+
+        }
+        else if(localMaiusculo.includes("APOIO")){
+
+            operadoresApoio.push(operador);
+
+            operadoresPostos.push(operador);
+
+        }
+        else{
+
+            operadoresMonitoria.push(operador);
+
+            operadoresPostos.push(operador);
+
+        }
 
         if(!texto) continue;
 
         if(
-            /^APOIO/i.test(texto) ||
+
             /^LOCOMOTIVA/i.test(texto) ||
+
             /^EQUIPE LOCOMOTIVA/i.test(texto) ||
+
             /^MQT/i.test(texto)
+
         ){
+
             continue;
+
         }
 
-        const regexNovo = /^(.*?)(?:\s+(\d{2}:\d{2}|\d{4}))?$/;
+        const regexNovo=/^(.*?)(?:\s+(\d{2}:\d{2}|\d{4}))?$/;
 
-        const regexAntigo = /([A-ZÀ-Ú'. ]+?)\s+(\d{4})/gi;
+        const regexAntigo=/([A-ZÀ-Ú'. ]+?)\s+(\d{4})/gi;
 
         if(texto.includes("/")){
 
             let item;
 
-            while((item = regexAntigo.exec(texto)) !== null){
+            while((item=regexAntigo.exec(texto))!==null){
 
                 operadores.push({
 
-                    nome: nomeCompleto,
+                    nome:nomeCompleto,
 
                     nomeCompleto,
 
                     local,
 
+                    grupo,
+
                     entrada,
 
                     situacao,
 
-                    maquinista: item[1].trim(),
+                    maquinista:item[1].trim(),
 
-                    horaMaquinista: item[2],
+                    horaMaquinista:item[2],
 
                     observacoes
 
@@ -444,28 +606,33 @@ async function lerExcel(file){
 
         }else{
 
-            let maquinista = texto;
-            let hora = "";
+            let maquinista=texto;
 
-            const partes = texto.match(regexNovo);
+            let hora="";
+
+            const partes=texto.match(regexNovo);
 
             if(partes){
 
-                maquinista = partes[1].trim();
+                maquinista=partes[1].trim();
 
                 if(partes[2]){
-                    hora = partes[2].replace(":","");
+
+                    hora=partes[2].replace(":","");
+
                 }
 
             }
 
             operadores.push({
 
-                nome: nomeCompleto,
+                nome:nomeCompleto,
 
                 nomeCompleto,
 
                 local,
+
+                grupo,
 
                 entrada,
 
@@ -473,7 +640,7 @@ async function lerExcel(file){
 
                 maquinista,
 
-                horaMaquinista: hora,
+                horaMaquinista:hora,
 
                 observacoes
 
@@ -483,17 +650,29 @@ async function lerExcel(file){
 
     }
 
-    resultado.value =
-`Gestão carregada.
+    resultado.value=
+`MONITORIA CPTM x TRIVIA
 
-Aba: ${aba}
+GESTÃO CARREGADA
 
-Operadores: ${operadores.length}
+Turno..................... ${turnoAtual}
 
-Postos: ${operadoresPostos.length}`;
+Operadores TRIVIA......... ${operadoresPostos.length}
+
+Operadores Aptos.......... ${operadoresMonitoria.length}
+
+Operadores Apoio.......... ${operadoresApoio.length}
+
+Operadores Ignorados...... ${operadoresIgnorados.length}`;
 
     console.table(operadoresPostos);
     console.table(operadores);
+
+    document.getElementById("statusGestao").textContent =
+        `${operadoresPostos.length} operadores`;
+
+    document.getElementById("statusTurno").textContent =
+        turnoAtual;
 
 }
 /*==================================================
@@ -841,9 +1020,7 @@ function formatarHora(valor){
 /*==================================================
     GERAR RENDIÇÕES
 ==================================================*/
-/*==================================================
-    GERAR RENDIÇÕES
-==================================================*/
+
 
 function gerarRendicoes(){
 
@@ -1128,3 +1305,553 @@ XLSX.writeFile(
 );
 
 }
+
+
+/*==================================================
+    GERAR MONITORIA
+==================================================*/
+
+function gerarMonitoria(){
+
+    if(!maquinistas.length){
+
+        alert("Carregue o PDF.");
+
+        return;
+
+    }
+
+    if(operadoresPostos.length===0){
+
+        alert("Carregue a Gestão de Escala.");
+
+        return;
+
+    }
+
+    const listaOperadores=gerarListaOperadores();
+
+    if(listaOperadores.length===0){
+
+        alert("Nenhum operador disponível.");
+
+        return;
+
+    }
+
+    operadoresSemMonitoria=[];
+
+    maquinistasSemOperador=[];
+
+    resultado.value="";
+
+    let listaSimples="";
+    dadosExcel = [];
+
+    let monitorados=0;
+
+    let postoAtual="";
+
+    maquinistas.sort((a,b)=>{
+
+        if(a.posto!==b.posto){
+
+            return a.posto.localeCompare(b.posto);
+
+        }
+
+        if(a.escala!==b.escala){
+
+            return a.escala.localeCompare(b.escala);
+
+        }
+
+        return converterHora(a.entrada)-converterHora(b.entrada);
+
+    });
+
+    resultado.value+=
+`==================================================
+MONITORIA CPTM x TRIVIA
+==================================================
+
+`;
+
+    maquinistas.forEach(m=>{
+
+        if(m.posto!==postoAtual){
+
+            postoAtual=m.posto;
+
+            resultado.value+=
+`
+==================================================
+POSTO ${postoAtual}
+==================================================
+
+`;
+
+        }
+
+        const operador=localizarOperador(
+
+            m,
+
+            listaOperadores
+
+        );
+
+        if(operador){
+
+            monitorados++;
+            dadosExcel.push({
+
+    posto: m.posto,
+
+    escala: m.escala,
+
+    maquinista: m.nome,
+
+    hora: m.entrada,
+
+    operador: operador.operador,
+
+    local: operador.local,
+
+    status: "MONITORADO",
+
+    monitoria: `${m.nome} ${m.entrada} / ${operador.operador}`
+
+});
+
+            listaSimples +=
+`${m.nome} ${m.entrada} / ${operador.operador}
+`;
+
+            resultado.value+=
+`Escala.....: ${m.escala}
+Maquinista.: ${m.nome} ${m.entrada}
+Operador...: ${operador.operador}
+Grupo......: ${operador.grupo}
+Local......: ${operador.local}
+Monitoria..: ${m.nome} ${m.entrada} / ${operador.operador}
+
+--------------------------------------------------
+
+`;
+
+        }else{
+
+            maquinistasSemOperador.push({
+
+                posto:m.posto,
+
+                escala:m.escala,
+
+                nome:m.nome,
+
+                hora:m.entrada
+
+            });
+            dadosExcel.push({
+
+    posto: m.posto,
+
+    escala: m.escala,
+
+    maquinista: m.nome,
+
+    hora: m.entrada,
+
+    operador: "",
+
+    local: "",
+
+    status: "SEM OPERADOR",
+
+    monitoria: ""
+
+});
+
+            resultado.value+=
+`Escala.....: ${m.escala}
+Maquinista.: ${m.nome} ${m.entrada}
+Operador...: SEM OPERADOR
+
+--------------------------------------------------
+
+`;
+
+        }
+
+    });
+
+    operadoresSemMonitoria=
+        listaOperadores.filter(op=>!op.utilizado);
+        document.getElementById("totalTrivia").textContent =
+    listaOperadores.length;
+
+document.getElementById("totalCPTM").textContent =
+    maquinistas.length;
+
+document.getElementById("totalMonitorias").textContent =
+    monitorados;
+
+document.getElementById("semMonitoria").textContent =
+    operadoresSemMonitoria.length;
+
+document.getElementById("semOperador").textContent =
+    maquinistasSemOperador.length;
+
+    resultado.value+=
+`
+==================================================
+RESUMO
+==================================================
+
+Operadores TRIVIA............. ${listaOperadores.length}
+
+Maquinistas CPTM.............. ${maquinistas.length}
+
+Monitorias.................... ${monitorados}
+
+Operadores sem Monitoria...... ${operadoresSemMonitoria.length}
+
+Maquinistas sem Operador...... ${maquinistasSemOperador.length}
+
+`;
+
+    if(operadoresSemMonitoria.length){
+
+        resultado.value+=
+`
+==================================================
+OPERADORES SEM MONITORIA
+==================================================
+
+`;
+
+        operadoresSemMonitoria
+            .sort((a,b)=>converterHora(a.hora)-converterHora(b.hora))
+            .forEach(op=>{
+
+                resultado.value+=
+`${op.operador} ${op.hora} ${op.local}
+`;
+
+            });
+
+    }
+
+    if(maquinistasSemOperador.length){
+
+        resultado.value+=
+`
+==================================================
+MAQUINISTAS SEM OPERADOR
+==================================================
+
+`;
+
+        maquinistasSemOperador.forEach(m=>{
+
+            resultado.value+=
+`${m.posto} ${m.escala} ${m.nome} ${m.hora}
+`;
+
+        });
+
+    }
+
+    resultado.value+=
+`
+==================================================
+LISTA SIMPLES
+==================================================
+
+${listaSimples}
+`;
+
+    console.table(listaOperadores);
+
+}
+
+function gerarListaOperadores(){
+
+    const lista = [];
+
+    const origem = [
+
+        ...operadoresMonitoria,
+
+        ...operadoresApoio
+
+    ];
+
+    origem.forEach(op=>{
+
+        if(!op.hora) return;
+
+        const local = op.local.toUpperCase();
+
+        // Ignorar operadores que nunca entram na monitoria
+        if(
+
+            local.includes("CCM") ||
+
+            local.includes("AUS") ||
+
+            local.includes("RETORNO") ||
+
+            local.includes("PSO") ||
+
+            local.includes("FISCAL")
+
+        ){
+
+            return;
+
+        }
+
+lista.push({
+
+    operador: buscarNomeGuerraTrivia(op.nome),
+
+    nomeCompleto: op.nome,
+
+    local: op.local,
+
+    posto: op.posto,
+
+    grupo: op.grupo,
+
+    hora: String(op.hora)
+        .replace(":","")
+        .padStart(4,"0"),
+
+    utilizado: false
+
+});
+
+    });
+
+    lista.sort((a,b)=>a.hora.localeCompare(b.hora));
+console.table(
+
+    lista.map(op=>({
+
+        operador:op.operador,
+
+        grupo:op.grupo,
+
+        local:op.local,
+
+        posto:op.posto
+
+    }))
+
+);
+    return lista;
+
+}
+
+const CORRELACAO_POSTOS = {
+
+    "BOA VISTA":[
+
+        "06-BAS-02",
+        "07-BAS-04",
+        "09-BAS-12",
+        "10-BAS-06 APOIO"
+
+    ],
+
+    "BRÁS":[
+
+        "SUZ-01",
+        "SUZ-02",
+        "SUZ-03",
+        "SUZ-04",
+        "SUZ-05",
+        "SUZ-06 APOIO",
+        "SUZ-11"
+
+    ],
+
+    "ENGENHEIRO GOULART":[
+
+        "20-LINHA 13 EGO-03",
+        "16-LINHA 12 EGO-02",
+        "17-LINHA 12 EGO-04"
+
+    ]
+
+};
+function localizarOperador(maquinista, lista){
+
+    const grupo = obterGrupoCPTM(maquinista.posto);
+
+    if(!grupo){
+
+        return null;
+
+    }
+
+    const horaBase = converterHora(maquinista.entrada);
+
+    const candidatos = lista.filter(op=>{
+
+        if(op.utilizado) return false;
+
+        if(op.grupo !== grupo) return false;
+
+        const diferenca = Math.abs(
+
+            converterHora(op.hora) -
+
+            horaBase
+
+        );
+
+        return diferenca <= 15;
+
+    });
+
+    console.log(
+
+        maquinista.nome,
+
+        grupo,
+
+        candidatos.length
+
+    );
+
+    if(!candidatos.length){
+
+        return null;
+
+    }
+
+    candidatos.sort((a,b)=>{
+
+        const diffA = Math.abs(
+
+            converterHora(a.hora) -
+
+            horaBase
+
+        );
+
+        const diffB = Math.abs(
+
+            converterHora(b.hora) -
+
+            horaBase
+
+        );
+
+        return diffA - diffB;
+
+    });
+
+    const operador = candidatos[0];
+
+    operador.utilizado = true;
+
+    return operador;
+
+}
+
+function converterHora(hora){
+
+    hora = String(hora)
+        .replace(":","")
+        .trim();
+
+    if(hora.length===3){
+
+        hora="0"+hora;
+
+    }
+
+    const h = parseInt(hora.substring(0,2));
+
+    const m = parseInt(hora.substring(2,4));
+
+    return h*60+m;
+
+}
+function obterGrupoCPTM(posto){
+
+    posto = posto.toUpperCase().trim();
+
+    // SUZ
+    if(
+        posto === "SUZ-01" ||
+        posto === "SUZ-02" ||
+        posto === "SUZ-03" ||
+        posto === "SUZ-04" ||
+        posto === "SUZ-05" ||
+        posto === "SUZ-11"
+    ){
+        return "SUZ";
+    }
+
+    // BAS
+    if(
+        posto === "06-BAS-02" ||
+        posto === "07-BAS-04" ||
+        posto === "09-BAS-12"
+    ){
+        return "BAS";
+    }
+
+    // EGO
+    if(
+        posto === "20-LINHA 13 EGO-03" ||
+        posto === "16-LINHA 12 EGO-02" ||
+        posto === "17-LINHA 12 EGO-04"
+    ){
+        return "EGO";
+    }
+
+    return null;
+
+}
+
+function exportarExcel(){
+
+    if(!dadosExcel.length){
+
+        alert("Gere a monitoria primeiro.");
+
+        return;
+
+    }
+
+    const ws = XLSX.utils.json_to_sheet(dadosExcel);
+
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+
+        wb,
+
+        ws,
+
+        "Monitoria"
+
+    );
+
+    XLSX.writeFile(
+
+        wb,
+
+        `Monitoria_${turnoAtual}.xlsx`
+
+    );
+
+}
+
+btnExcelMonitoria.onclick = exportarExcel;
