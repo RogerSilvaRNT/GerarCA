@@ -31,6 +31,8 @@ const btnMonitoria = document.getElementById("btnMonitoria");
 
 btnMonitoria.addEventListener("click", gerarMonitoria);
 
+btnExcelMonitoria.onclick = exportarExcel;
+
 
 /*==================================================
     BASES
@@ -65,6 +67,8 @@ let maquinistasSemOperador = [];
 let dadosExcel = [];
 
 let vagasCPTM = [];
+
+let ocorrenciasPDF = [];
 
 /*==================================================
     EVENTOS
@@ -346,45 +350,50 @@ async function lerPDF(file){
 
         });
 
-let linhaAnterior = "";
-
-Object.keys(linhas)
+const listaLinhas = Object.keys(linhas)
     .sort((a,b)=>b-a)
-    .forEach(y=>{
+    .map(y=>{
 
-        let linha = linhas[y]
+        return linhas[y]
             .sort((a,b)=>a.transform[4]-b.transform[4])
             .map(i=>i.str)
             .join(" ")
             .replace(/\s+/g," ")
             .trim();
 
-        // Linha quebrada: "16-LINHA 12 -"
-        if(/-\s*$/.test(linha)){
-
-            linhaAnterior = linha;
-
-            return;
-
-        }
-
-        if(linhaAnterior){
-
-            linha = linhaAnterior + " " + linha;
-
-            linhaAnterior = "";
-
-        }
-
-        processarLinhaPDF(linha);
-
     });
+
+for(let i=0;i<listaLinhas.length;i++){
+
+    let linha = listaLinhas[i];
+
+    if(!linha) continue;
+
+    // Junta linhas quebradas
+    while(
+
+        i+1 < listaLinhas.length &&
+
+        /-\s*$/.test(linha)
+
+    ){
+
+        linha = linha.replace(/-\s*$/,"");
+
+        linha += " " + listaLinhas[++i];
+
+    }
+
+    processarLinhaPDF(linha);
+
+}
 
     }
 
     console.table(maquinistas);
 
     console.table(vagasCPTM);
+    console.table(ocorrenciasPDF);
 
     console.log(
         `Maquinistas: ${maquinistas.length}`
@@ -397,23 +406,40 @@ Object.keys(linhas)
 }
 function processarLinhaPDF(linha){
 
+    linha = linha
+        .replace(/\s+/g," ")
+        .trim();
+
+    if(!linha) return;
+
     const match = linha.match(
-        /^(.+?)\s+([A-Z]{2}\d{3})\s+(.+?)\s+(\d{2}:\d{2})/
+        /^(.+?)\s+([A-Z]{2}\d{3})\s+(.+?)\s+(\d{2}:\d{2})(.*)$/
     );
 
     if(!match) return;
 
-    const posto   = match[1].trim();
-    const escala  = match[2].trim();
-    const nome    = match[3].trim().toUpperCase();
+    const posto = match[1].trim();
+
+    const escala = match[2].trim();
+
+    const nome = match[3].trim().toUpperCase();
+
     const entrada = match[4].replace(":","");
 
-    // Ignorar linhas administrativas
+    const restante = match[5]
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g,"")
+        .toUpperCase();
+
+    //=========================================
+    // LINHAS ADMINISTRATIVAS
+    //=========================================
+
     if(
 
-        nome.startsWith("APOIO") ||
+        nome.startsWith("TREIN.") ||
 
-        nome.startsWith("TREIN.")
+        nome.startsWith("TREINAMENTO")
 
     ){
 
@@ -421,7 +447,10 @@ function processarLinhaPDF(linha){
 
     }
 
-    // Vaga da CPTM (linha sem maquinista)
+    //=========================================
+    // VAGA CPTM
+    //=========================================
+
     if(
 
         /^(\d{2}:\d{2}|\d{4})$/.test(nome)
@@ -434,7 +463,7 @@ function processarLinhaPDF(linha){
 
             escala,
 
-            hora: entrada
+            hora:entrada
 
         });
 
@@ -442,7 +471,54 @@ function processarLinhaPDF(linha){
 
     }
 
-    // Maquinista válido
+    //=========================================
+    // OCORRÊNCIAS
+    //=========================================
+
+    const palavras = [
+
+        "AUSENCIA",
+
+        "FISCAL",
+
+        "CCM",
+
+        "FOLGA",
+
+        "APOIO"
+
+    ];
+
+    const encontrou = palavras.some(p=>
+
+        restante.includes(p)
+
+    );
+
+    if(encontrou){
+
+        ocorrenciasPDF.push({
+
+            posto,
+
+            escala,
+
+            nome,
+
+            entrada,
+
+            observacao:restante
+
+        });
+
+        return;
+
+    }
+
+    //=========================================
+    // MAQUINISTA
+    //=========================================
+
     maquinistas.push({
 
         posto,
@@ -784,50 +860,137 @@ function limparTudo(){
 function extrairMaquinistas(texto){
 
     maquinistas = [];
+    vagasCPTM = [];
+    ocorrenciasPDF = [];
 
     texto = texto
         .replace(/\r/g," ")
         .replace(/\n/g," ")
         .replace(/\s+/g," ");
 
-    const regex = /([0-9]{2}-[A-Z0-9 ]+(?:-[A-Z0-9 ]+)*)\s+([A-Z]{2}\d{3})\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ.'\- ]+?)\s+(\d{2}:\d{2})/gi;
+    const regex = /([0-9]{2}-[A-Z0-9 ]+(?:-[A-Z0-9 ]+)*)\s+([A-Z]{2}\d{3})\s+(.+?)\s+(\d{2}:\d{2})(.*?)(?=(?:[0-9]{2}-[A-Z0-9 ]+(?:-[A-Z0-9 ]+)*)\s+[A-Z]{2}\d{3}|$)/gis;
 
     let item;
 
     while((item = regex.exec(texto)) !== null){
 
-        const nome = item[3].trim();
+        const posto = item[1].trim();
+
+        const escala = item[2].trim();
+
+        const nome = item[3].trim().toUpperCase();
+
+        const entrada = item[4].replace(":","");
+
+        const observacao = item[5]
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g,"")
+            .toUpperCase()
+            .trim();
+
+        //=========================
+        // TREINAMENTO
+        //=========================
+
+        if(nome.startsWith("TREIN.")){
+
+            continue;
+
+        }
+
+        //=========================
+        // VAGA CPTM
+        //=========================
+
+        if(/^(\d{2}:\d{2}|\d{4})$/.test(nome)){
+
+            vagasCPTM.push({
+
+                posto,
+
+                escala,
+
+                hora:entrada
+
+            });
+
+            continue;
+
+        }
+
+        //=========================
+        // OCORRÊNCIAS
+        //=========================
 
         if(
-            !nome ||
-            nome.startsWith("APOIO ESC") ||
-            nome.startsWith("TREIN.") ||
-            /^\d+$/.test(nome)
+
+            observacao.includes("AUSENCIA") ||
+
+            observacao.includes("FISCAL") ||
+
+            observacao.includes("CCM") ||
+
+            observacao.includes("FOLGA") ||
+
+            observacao.includes("APOIO")
+
         ){
+
+            ocorrenciasPDF.push({
+
+                posto,
+
+                escala,
+
+                nome,
+
+                entrada,
+
+                observacao
+
+            });
+
             continue;
+
         }
+
+        //=========================
+        // MAQUINISTA
+        //=========================
 
         maquinistas.push({
 
-            posto: item[1].trim(),
-            escala: item[2].trim(),
+            posto,
+
+            escala,
+
             nome,
-            entrada: item[4].replace(":","")
+
+            entrada
 
         });
 
     }
 
     console.table(maquinistas);
+    console.table(vagasCPTM);
+    console.table(ocorrenciasPDF);
+
+    console.log("Maquinistas:", maquinistas.length);
+    console.log("Vagas:", vagasCPTM.length);
+    console.log("Ocorrências:", ocorrenciasPDF.length);
 
 }
 /*==================================================
     MOSTRAR LISTA DO PDF
 ==================================================*/
-
 function mostrarListaPDF(){
 
     resultado.value = "";
+
+    //========================================
+    // MAQUINISTAS
+    //========================================
 
     resultado.value +=
 `========================================
@@ -844,6 +1007,10 @@ MAQUINISTAS CPTM
 
     });
 
+    //========================================
+    // VAGAS
+    //========================================
+
     resultado.value +=
 `
 ========================================
@@ -859,6 +1026,35 @@ VAGAS CPTM
 `;
 
     });
+
+    //========================================
+    // OCORRÊNCIAS
+    //========================================
+
+    resultado.value +=
+`
+========================================
+OCORRÊNCIAS PDF
+========================================
+
+`;
+
+    if(ocorrenciasPDF.length){
+
+        ocorrenciasPDF.forEach(o=>{
+
+            resultado.value +=
+`${o.posto}  ${o.escala}  ${o.nome}  ${o.entrada}  ${o.observacao}
+`;
+
+        });
+
+    }else{
+
+        resultado.value +=
+"Nenhuma ocorrência encontrada.\n";
+
+    }
 
 }
 /*==================================================
@@ -1480,36 +1676,39 @@ POSTO ${postoAtual}
             listaOperadores
 
         );
+if(operador){
 
-        if(operador){
+    monitorados++;
 
-            monitorados++;
+    dadosExcel.push({
 
-            dadosExcel.push({
+        tipo:"MONITORIA",
 
-                posto:m.posto,
+        posto:m.posto,
 
-                escala:m.escala,
+        escala:m.escala,
 
-                maquinista:m.nome,
+        maquinista:m.nome,
 
-                hora:m.entrada,
+        hora:m.entrada,
 
-                operador:operador.nomeCompleto,
+        operador:operador.nomeCompleto,
 
-                nomeCompletoOperador:operador.nomeCompleto,
+        nomeCompletoOperador:operador.nomeCompleto,
 
-                entradaOperador:operador.hora,
+        entradaOperador:operador.hora,
 
-                local:operador.local,
+        local:operador.local,
 
-                status:"MONITORADO",
+        status:"MONITORADO",
 
-                monitoria:`${m.nome} ${m.entrada} / ${operador.operador}`
+        observacao:"",
 
-            });
+        monitoria:`${m.nome} ${m.entrada} / ${operador.operador}`
 
-            listaSimples +=
+    });
+
+    listaSimples +=
 `${m.nome} ${m.entrada} / ${operador.operador}
 `;
 
@@ -1555,7 +1754,8 @@ Monitoria..: ${m.nome} ${m.entrada} / ${operador.operador}
 
                 status:"SEM OPERADOR",
 
-                monitoria:""
+                monitoria:"",
+                observacao: ""
 
             });
 
@@ -1644,6 +1844,7 @@ OPERADORES TRIVIA SEM MONITORIA CPTM
 
         resultado.value +=
 `
+
 ==================================================
 MAQUINISTAS CPTM SEM OPERADOR
 ==================================================
@@ -1659,7 +1860,58 @@ MAQUINISTAS CPTM SEM OPERADOR
         });
 
     }
+//==============================================
+// OCORRÊNCIAS DO PDF
+//==============================================
 
+if(ocorrenciasPDF.length){
+
+    resultado.value +=
+`
+==================================================
+OCORRÊNCIAS DO PDF
+==================================================
+
+`;
+
+    ocorrenciasPDF.forEach(o=>{
+
+        resultado.value +=
+`${o.posto}
+Escala......: ${o.escala}
+Nome........: ${o.nome}
+Entrada.....: ${o.entrada}
+Ocorrência..: ${o.observacao}
+
+--------------------------------------------------
+
+`;
+
+        dadosExcel.push({
+
+            posto: o.posto,
+
+            escala: o.escala,
+
+            maquinista: o.nome,
+
+            hora: o.entrada,
+
+            operador: "",
+
+            local: "",
+
+            status: "OCORRÊNCIA PDF",
+
+            monitoria: "",
+
+            observacao: o.observacao
+
+        });
+
+    });
+
+}
     //==================================================
     // VAGAS CPTM
     //==================================================
@@ -1698,7 +1950,8 @@ VAGAS CPTM
 
                     status:"VAGA CPTM",
 
-                    monitoria:""
+                    monitoria:"",
+                    observacao: ""
 
                 });
 
@@ -2068,7 +2321,7 @@ function exportarExcel(){
 
     linhas.push([
 
-        "MONITORIA / PENDÊNCIAS CPTM","","","","","","","",
+        "MONITORIA / PENDÊNCIAS CPTM","","","","","","","","","",
 
         "",
 
@@ -2087,6 +2340,7 @@ function exportarExcel(){
         "Entrada",
         "Local",
         "Status",
+        "Observação",
 
         "",
 
@@ -2098,6 +2352,10 @@ function exportarExcel(){
     ]);
 
     const blocoEsquerdo = [];
+
+    //==================================================
+    // MONITORADOS
+    //==================================================
 
     monitorados.forEach(item=>{
 
@@ -2114,15 +2372,54 @@ function exportarExcel(){
             hora:item.hora,
 
             operador:item.nomeCompletoOperador || item.operador,
+
             entradaOperador:item.entradaOperador || "",
 
             local:item.local,
 
-            status:item.status
+            status:item.status,
+
+            observacao:""
 
         });
 
     });
+
+    //==================================================
+    // OCORRÊNCIAS PDF
+    //==================================================
+
+    ocorrenciasPDF.forEach(item=>{
+
+        blocoEsquerdo.push({
+
+            tipo:"OCORRÊNCIA PDF",
+
+            posto:item.posto,
+
+            escala:item.escala,
+
+            maquinista:item.nome,
+
+            hora:item.entrada,
+
+            operador:"",
+
+            entradaOperador:"",
+
+            local:"",
+
+            status:"OCORRÊNCIA",
+
+            observacao:item.observacao
+
+        });
+
+    });
+
+    //==================================================
+    // SEM OPERADOR
+    //==================================================
 
     semOperador.forEach(item=>{
 
@@ -2139,15 +2436,24 @@ function exportarExcel(){
             hora:item.hora,
 
             operador:"",
-            
+
+            entradaOperador:"",
 
             local:"",
 
-            status:item.status
+            status:item.status,
+
+            observacao:""
 
         });
 
     });
+
+    
+
+    //==================================================
+    // VAGAS CPTM
+    //==================================================
 
     vagas.forEach(item=>{
 
@@ -2165,9 +2471,13 @@ function exportarExcel(){
 
             operador:"",
 
+            entradaOperador:"",
+
             local:"",
 
-            status:item.status
+            status:item.status,
+
+            observacao:""
 
         });
 
@@ -2198,6 +2508,7 @@ function exportarExcel(){
             e.entradaOperador || "",
             e.local || "",
             e.status || "",
+            e.observacao || "",
 
             "",
 
@@ -2214,15 +2525,16 @@ function exportarExcel(){
 
     ws["!cols"]=[
 
-{wch:18}, // Tipo
-{wch:18}, // Posto
-{wch:10}, // Escala
-{wch:35}, // Maquinista
-{wch:8},  // Hora
-{wch:35}, // Operador (nome completo)
-{wch:10}, // Entrada
-{wch:12}, // Local
-{wch:18}, // Status
+        {wch:18}, // Tipo
+        {wch:18}, // Posto
+        {wch:10}, // Escala
+        {wch:35}, // Maquinista
+        {wch:8},  // Hora
+        {wch:35}, // Operador
+        {wch:10}, // Entrada
+        {wch:12}, // Local
+        {wch:18}, // Status
+        {wch:40}, // Observação
 
         {wch:3},
 
@@ -2244,6 +2556,124 @@ function exportarExcel(){
         "Monitoria"
 
     );
+//==================================================
+// ABA LISTA SIMPLES
+//==================================================
+
+const listaSimples = [];
+
+listaSimples.push([
+
+    "MAQUINISTA",
+
+    "OPERADOR",
+
+    "MONITORIA CPTM x TRIVIA",
+
+    "",
+
+    "MAQUINISTA CPTM SEM MONITORIA"
+
+]);
+
+listaSimples.push([
+
+    "Nome Completo + Hora",
+
+    "Nome Completo",
+
+    "Lista Simples",
+
+    "",
+
+    "Nome Completo + Hora"
+
+]);
+
+const monitoradosLista = [...monitorados].sort((a,b)=>{
+
+    if((a.entradaOperador || "") !== (b.entradaOperador || "")){
+        return (a.entradaOperador || "").localeCompare(b.entradaOperador || "");
+    }
+
+    return (a.nomeCompletoOperador || "")
+        .localeCompare(b.nomeCompletoOperador || "");
+
+});
+
+const totalLista = Math.max(
+    monitoradosLista.length,
+    maquinistasSemOperador.length
+);
+
+for(let i=0;i<totalLista;i++){
+
+    const item = monitoradosLista[i] || {};
+
+    const sem = maquinistasSemOperador[i] || {};
+
+    let nomeGuerraMaquinista = "";
+
+    let nomeGuerraOperador = "";
+
+    if(item.maquinista){
+
+        nomeGuerraMaquinista =
+            buscarNomeGuerraCPTM(item.maquinista);
+
+        nomeGuerraOperador =
+            buscarNomeGuerraTrivia(
+                item.nomeCompletoOperador || item.operador
+            );
+
+    }
+
+listaSimples.push([
+
+    item.maquinista
+        ? `${item.maquinista} ${item.hora}`
+        : "",
+
+    item.nomeCompletoOperador || item.operador || "",
+
+    item.maquinista
+        ? `${nomeGuerraMaquinista} ${item.hora} / ${nomeGuerraOperador}`
+        : "",
+
+    "",
+
+    sem.nome
+        ? `${sem.nome} ${sem.hora}`
+        : ""
+
+]);
+}
+
+const wsLista = XLSX.utils.aoa_to_sheet(listaSimples);
+
+wsLista["!cols"] = [
+
+    {wch:40},
+
+    {wch:35},
+
+    {wch:45},
+
+    {wch:3},
+
+    {wch:40}
+
+];
+
+XLSX.utils.book_append_sheet(
+
+    wb,
+
+    wsLista,
+
+    "LISTA SIMPLES"
+
+);
 
     XLSX.writeFile(
 
@@ -2255,4 +2685,3 @@ function exportarExcel(){
 
 }
 
-btnExcelMonitoria.onclick = exportarExcel;
