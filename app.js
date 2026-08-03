@@ -70,6 +70,7 @@ let vagasCPTM = [];
 
 let ocorrenciasPDF = [];
 
+let turnoCA = "";
 /*==================================================
     EVENTOS
 ==================================================*/
@@ -333,7 +334,40 @@ async function lerPDF(file){
         const page = await pdf.getPage(pagina);
 
         const content = await page.getTextContent();
+      //======================================
+// IDENTIFICA O TURNO PELO HORÁRIO
+//======================================
 
+const horarios = content.items
+    .map(item => item.str.trim())
+    .filter(txt => /^\d{2}:\d{2}$/.test(txt));
+
+const primeiraEntrada = horarios[0] || "";
+
+if(primeiraEntrada){
+
+    const hora = Number(primeiraEntrada.replace(":",""));
+
+    if(hora >= 400 && hora < 1200){
+
+        turnoCA = "MANHÃ";
+
+    }
+    else if(hora >= 1200 && hora < 1800){
+
+        turnoCA = "TARDE";
+
+    }
+    else{
+
+        turnoCA = "NOITE";
+
+    }
+
+}
+
+console.log("Primeira entrada:", primeiraEntrada);
+console.log("Turno identificado:", turnoCA);
         const linhas = {};
 
         content.items.forEach(item=>{
@@ -402,8 +436,11 @@ for(let i=0;i<listaLinhas.length;i++){
     console.log(
         `Vagas: ${vagasCPTM.length}`
     );
+console.log("Turno do CA:", turnoCA);
 
+document.getElementById("statusTurno").textContent = turnoCA || "--";
 }
+
 function processarLinhaPDF(linha){
 
     linha = linha
@@ -542,16 +579,35 @@ async function lerExcel(file){
 
     const workbook = XLSX.read(bytes,{type:"array"});
 
-    const aba =
-        workbook.SheetNames.find(nome =>
-            ["MANHÃ","MANHA","TARDE","NOITE","GERAL"]
-                .includes(nome.toUpperCase().trim())
-        ) || workbook.SheetNames[0];
+  const aba = workbook.SheetNames.find(nome=>{
 
-    turnoAtual = aba.toUpperCase().trim();
+    const nomeAba = nome
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g,"")
+        .toUpperCase()
+        .trim();
 
-    const sheet = workbook.Sheets[aba];
+    const turno = turnoCA
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g,"")
+        .toUpperCase()
+        .trim();
 
+    return nomeAba === turno;
+
+});
+
+if(!aba){
+
+    alert(`Não foi encontrada a aba "${turnoCA}" na Gestão de Escala.`);
+
+    return;
+
+}
+
+turnoAtual = aba;
+
+const sheet = workbook.Sheets[aba];
     const dados = XLSX.utils.sheet_to_json(sheet,{
         header:1,
         defval:""
@@ -786,30 +842,32 @@ async function lerExcel(file){
 
     }
 
-    resultado.value=
+    resultado.value =
 `MONITORIA CPTM x TRIVIA
 
-GESTÃO CARREGADA
+CONTROLE DE APRESENTAÇÃO
 
-Turno..................... ${turnoAtual}
+Turno..................... ${turnoCA}
 
-Operadores TRIVIA......... ${operadoresPostos.length}
+Maquinistas CPTM.......... ${maquinistas.length}
 
-Operadores Aptos.......... ${operadoresMonitoria.length}
+Vagas CPTM................ ${vagasCPTM.length}
 
-Operadores Apoio.......... ${operadoresApoio.length}
+Ocorrências............... ${ocorrenciasPDF.length}
 
-Operadores Ignorados...... ${operadoresIgnorados.length}`;
+Controle de apresentação carregado com sucesso.`;
 
     console.table(operadoresPostos);
     console.table(operadores);
 
-    document.getElementById("statusGestao").textContent =
-        `${operadoresPostos.length} operadores`;
+document.getElementById("statusGestao").textContent =
+    `${operadoresPostos.length} operadores`;
 
-    document.getElementById("statusTurno").textContent =
-        turnoAtual;
+document.getElementById("statusTurno").textContent =
+    aba;
 
+console.log("Turno CA:", turnoCA);
+console.log("Aba carregada:", aba);
 }
 /*==================================================
     COPIAR
@@ -986,18 +1044,28 @@ function extrairMaquinistas(texto){
 ==================================================*/
 function mostrarListaPDF(){
 
-    resultado.value = "";
+    resultado.value =
+`MONITORIA CPTM x TRIVIA
 
-    //========================================
-    // MAQUINISTAS
-    //========================================
+CONTROLE DE APRESENTAÇÃO
 
-    resultado.value +=
-`========================================
+Turno..................... ${turnoCA}
+
+Maquinistas CPTM.......... ${maquinistas.length}
+
+Vagas CPTM................ ${vagasCPTM.length}
+
+Ocorrências............... ${ocorrenciasPDF.length}
+
+========================================
 MAQUINISTAS CPTM
 ========================================
 
 `;
+
+    //========================================
+    // MAQUINISTAS
+    //========================================
 
     maquinistas.forEach(m=>{
 
@@ -1056,95 +1124,7 @@ OCORRÊNCIAS PDF
 
     }
 
-}
-/*==================================================
-    IMPORTAR BANCO DE DADOS
-==================================================*/
-
-async function importarBanco(){
-
-    if(!bancoInput.files.length){
-
-        alert("Selecione o Banco de Dados.");
-
-        return;
-
-    }
-
-    const bytes = await bancoInput.files[0].arrayBuffer();
-
-    const workbook = XLSX.read(bytes);
-console.log("CPTM:", bancoCPTM.length);
-console.log("TRIVIA:", bancoTrivia.length);
-
-console.table(bancoCPTM.slice(0,5));
-    /*======================
-        MQTS CPTM
-    ======================*/
-
-    bancoCPTM = [];
-
-    const abaCPTM = workbook.Sheets["MQTS CPTM"];
-
-    const dadosCPTM = XLSX.utils.sheet_to_json(abaCPTM,{
-        header:1,
-        defval:""
-    });
-
-    for(let i=1;i<dadosCPTM.length;i++){
-
-        if(!dadosCPTM[i][0]) continue;
-
-        bancoCPTM.push({
-
-            nome:dadosCPTM[i][0].toString().trim().toUpperCase(),
-
-            guerra:dadosCPTM[i][1].toString().trim()
-
-        });
-
-    }
-
-    /*======================
-        OPT TRIVIA
-    ======================*/
-
-    bancoTrivia = [];
-
-    const abaTrivia = workbook.Sheets["OPT TRIVIA"];
-
-    const dadosTrivia = XLSX.utils.sheet_to_json(abaTrivia,{
-        header:1,
-        defval:""
-    });
-
-    for(let i=1;i<dadosTrivia.length;i++){
-
-        if(!dadosTrivia[i][0]) continue;
-
-        bancoTrivia.push({
-
-            nome:dadosTrivia[i][0].toString().trim().toUpperCase(),
-
-            guerra:dadosTrivia[i][1].toString().trim()
-
-        });
-
-    }
-
-    localStorage.setItem("bancoCPTM",JSON.stringify(bancoCPTM));
-    localStorage.setItem("bancoTrivia",JSON.stringify(bancoTrivia));
-
-    resultado.value =
-`BANCO IMPORTADO COM SUCESSO
-
-MQTS CPTM : ${bancoCPTM.length}
-
-OPT TRIVIA : ${bancoTrivia.length}`;
-
-}
-
-/*==================================================
+}/*==================================================
     NORMALIZAR NOME
 ==================================================*/
 
