@@ -600,26 +600,32 @@ textarea.form-control:focus{
 
 }
 
-/*==================================================
-RODAPÉ
-==================================================*/
-
 #rodape{
 
     position:fixed;
 
-    left:50%;
+    left:0;
+
+    right:0;
 
     bottom:8px;
 
-    transform:translateX(-50%);
+    text-align:center;
 
-    font-size:13px;
+    font-size:14px;
 
     color:#6c757d;
 
+    font-weight:500;
+
     z-index:9999;
 
-    user-select:none;
+    pointer-events:none;
+
+}
+
+#rodape strong{
+
+    color:#343a40;
 
 }
