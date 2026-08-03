@@ -212,97 +212,122 @@
     </div>
 
 </div>
+
 <!-- =========================
 PAINEL PRINCIPAL
 ========================= -->
 
-<div class="col-lg-9 col-xl-10 d-flex flex-column p-3">
+<div class="col-lg-9 col-xl-10 d-flex flex-column p-2">
 
-<div class="card shadow-sm mb-3">
+    <!-- =========================
+    RESUMO
+    ========================== -->
 
-<div class="card-header bg-primary text-white">
+    <div class="card shadow-sm mb-2" id="cardResumo">
 
-Resumo da Monitoria
+        <div class="card-header bg-primary text-white py-2">
 
-</div>
+            Resumo da Monitoria
 
-<div class="card-body">
+        </div>
 
-<div class="row text-center">
+        <div class="card-body py-2">
 
-<div class="col">
+            <div class="row text-center g-1 align-items-center">
 
-<h6>Operadores TRIVIA</h6>
+                <div class="col">
 
-<h2 id="totalTrivia">
+                    <h6 class="small mb-1">
 
-0
+                        Operadores TRIVIA
 
-</h2>
+                    </h6>
 
-</div>
+                    <h2 class="mb-0" id="totalTrivia">
 
-<div class="col">
+                        0
 
-<h6>Maquinistas CPTM</h6>
+                    </h2>
 
-<h2 id="totalCPTM">
+                </div>
 
-0
+                <div class="col">
 
-</h2>
+                    <h6 class="small mb-1">
 
-</div>
+                        Maquinistas CPTM
 
-<div class="col">
+                    </h6>
 
-<h6>Monitorias</h6>
+                    <h2 class="mb-0" id="totalCPTM">
 
-<h2 id="totalMonitorias">
+                        0
 
-0
+                    </h2>
 
-</h2>
+                </div>
 
-</div>
+                <div class="col">
 
-<div class="col">
+                    <h6 class="small mb-1">
 
-<h6>Sem Monitoria</h6>
+                        Monitorias
 
-<h2 id="semMonitoria">
+                    </h6>
 
-0
+                    <h2 class="mb-0" id="totalMonitorias">
 
-</h2>
+                        0
 
-</div>
+                    </h2>
 
-<div class="col">
+                </div>
 
-<h6>Sem Operador</h6>
+                <div class="col">
 
-<h2 id="semOperador">
+                    <h6 class="small mb-1">
 
-0
+                        Sem Monitoria
 
-</h2>
+                    </h6>
 
-</div>
+                    <h2 class="mb-0" id="semMonitoria">
 
-</div>
+                        0
 
-</div>
+                    </h2>
 
-</div>
+                </div>
 
+                <div class="col">
+
+                    <h6 class="small mb-1">
+
+                        Sem Operador
+
+                    </h6>
+
+                    <h2 class="mb-0" id="semOperador">
+
+                        0
+
+                    </h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+    
 <!-- =========================
 RESULTADO
 ========================= -->
 
-<div class="card shadow-sm flex-fill">
+<div class="card shadow-sm flex-grow-1 d-flex flex-column" id="cardResultado">
 
-    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center py-2">
 
         <strong>
 
@@ -332,26 +357,27 @@ RESULTADO
 
     </div>
 
-    <div class="card-body p-2">
+    <div class="card-body p-0 flex-grow-1">
 
         <textarea
             id="resultado"
-            class="form-control h-100"
+            class="form-control border-0 h-100"
             readonly
             style="
+                width:100%;
+                height:100%;
                 resize:none;
-                border:none;
+                outline:none;
+                padding:12px;
                 font-family:Consolas, monospace;
                 font-size:14px;
                 white-space:pre;
-                background:#ffffff;
-            ">
+                background:#fff;
+            "></textarea>
 
-        </textarea>
+    </div>
 
-    </div> <!-- card-body -->
-
-</div> <!-- card -->
+</div>
 
 </div> <!-- painel principal -->
 
