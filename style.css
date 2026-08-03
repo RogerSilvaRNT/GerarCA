@@ -599,3 +599,27 @@ textarea.form-control:focus{
     font-size:.82rem;
 
 }
+
+/*==================================================
+RODAPÉ
+==================================================*/
+
+#rodape{
+
+    position:fixed;
+
+    left:50%;
+
+    bottom:8px;
+
+    transform:translateX(-50%);
+
+    font-size:13px;
+
+    color:#6c757d;
+
+    z-index:9999;
+
+    user-select:none;
+
+}
