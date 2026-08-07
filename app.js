@@ -579,7 +579,11 @@ async function lerExcel(file){
 
     const workbook = XLSX.read(bytes,{type:"array"});
 
-  const aba = workbook.SheetNames.find(nome=>{
+  //======================================
+// LOCALIZA AS ABAS DE TURNO
+//======================================
+
+const abasTurno = workbook.SheetNames.filter(nome=>{
 
     const nomeAba = nome
         .normalize("NFD")
@@ -587,21 +591,62 @@ async function lerExcel(file){
         .toUpperCase()
         .trim();
 
-    const turno = turnoCA
+    return ["MANHA","MANHÃ","TARDE","NOITE"].includes(nomeAba);
+
+});
+
+if(!abasTurno.length){
+
+    alert("Nenhuma aba de turno foi encontrada na Gestão de Escala.");
+
+    return;
+
+}
+
+let aba;
+
+// Apenas uma aba
+if(abasTurno.length===1){
+
+    aba = abasTurno[0];
+
+}
+// Mais de uma aba
+else{
+
+    const opcoes = abasTurno.join("\n");
+
+    const resposta = prompt(
+`Selecione o turno da Gestão:
+
+${opcoes}`
+    );
+
+    if(!resposta) return;
+
+    const turnoSelecionado = resposta
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g,"")
         .toUpperCase()
         .trim();
 
-    return nomeAba === turno;
+    aba = abasTurno.find(nome=>
 
-});
+        nome
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g,"")
+            .toUpperCase()
+            .trim()===turnoSelecionado
 
-if(!aba){
+    );
 
-    alert(`Não foi encontrada a aba "${turnoCA}" na Gestão de Escala.`);
+    if(!aba){
 
-    return;
+        alert("Turno inválido.");
+
+        return;
+
+    }
 
 }
 
@@ -842,6 +887,8 @@ const sheet = workbook.Sheets[aba];
 
     }
 
+ if(maquinistas.length){
+
     resultado.value =
 `MONITORIA CPTM x TRIVIA
 
@@ -856,6 +903,19 @@ Vagas CPTM................ ${vagasCPTM.length}
 Ocorrências............... ${ocorrenciasPDF.length}
 
 Controle de apresentação carregado com sucesso.`;
+
+}else{
+
+    resultado.value =
+`GESTÃO DE ESCALA
+
+Turno..................... ${turnoAtual}
+
+Operadores................. ${operadoresPostos.length}
+
+Gestão de Escala carregada com sucesso.`;
+
+}
 
     console.table(operadoresPostos);
     console.table(operadores);
@@ -1340,52 +1400,55 @@ function gerarRendicoes(){
 
             const listaHorarios = Object.keys(horarios).sort();
 
-            const totalEquipes = Math.ceil(lista.length / 10);
+            let totalEquipes;
 
-            const equipes = [];
+switch(local){
 
-            for(let i=0;i<totalEquipes;i++){
+    case "SUZ":
+        totalEquipes = 5;
+        break;
 
-                equipes.push([]);
+    case "BAS":
+        totalEquipes = 3;
+        break;
 
-            }
+    default:
+        totalEquipes = Math.max(1, Math.ceil(lista.length / 10));
 
-            let equipeAtual = 0;
+}
 
-            while(true){
+//=====================================
+// DISTRIBUIÇÃO POR HORÁRIO
+//=====================================
 
-                let adicionou = false;
+const equipes = Array.from(
+    { length: totalEquipes },
+    () => []
+);
 
-                for(const hora of listaHorarios){
+let equipeAtual = 0;
 
-                    if(horarios[hora].length){
+for(const hora of listaHorarios){
 
-                        equipes[equipeAtual].push(
-                            horarios[hora].shift()
-                        );
+    const operadoresHora = [...horarios[hora]];
 
-                        equipeAtual++;
+    while(operadoresHora.length){
 
-                        if(equipeAtual >= equipes.length){
+        equipes[equipeAtual].push(
+            operadoresHora.shift()
+        );
 
-                            equipeAtual = 0;
+        equipeAtual++;
 
-                        }
+        if(equipeAtual >= totalEquipes){
 
-                        adicionou = true;
+            equipeAtual = 0;
 
-                    }
+        }
 
-                }
+    }
 
-                if(!adicionou){
-
-                    break;
-
-                }
-
-            }
-
+}
             // Escreve no Resultado
 
             equipes.forEach((equipe,index)=>{
@@ -1408,33 +1471,7 @@ function gerarRendicoes(){
 
         });
 
-    //=========================
-    // GERAR EXCEL
-    //=========================
 
-    const linhas = resultado.value
-        .trim()
-        .split("\n")
-        .map(linha=>[linha]);
-
-    const wb = XLSX.utils.book_new();
-
-    const ws = XLSX.utils.aoa_to_sheet(linhas);
-
-    ws["!cols"] = [
-        { wch: 50 }
-    ];
-
-    XLSX.utils.book_append_sheet(
-        wb,
-        ws,
-        "Rendições"
-    );
-
-    XLSX.writeFile(
-        wb,
-        "Rendicoes.xlsx"
-    );
 
 }
 function exportarRendicoesExcel(postos){

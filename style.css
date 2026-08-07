@@ -276,7 +276,7 @@ RESULTADO
 
     min-height:0;
 
-    margin-bottom:18px;
+    margin-bottom:0;
 
 }
 
@@ -570,7 +570,15 @@ AJUSTES FINAIS
 
 #cardResultado{
 
-    flex-grow:1;
+    flex:1;
+
+    display:flex;
+
+    flex-direction:column;
+
+    min-height:0;
+
+    margin-bottom:18px;
 
 }
 
