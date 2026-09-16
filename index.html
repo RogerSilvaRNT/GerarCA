@@ -57,11 +57,15 @@
                 accept=".pdf"
                 hidden>
 
-            <input
-                type="file"
-                id="excel"
-                accept=".xlsx,.xls"
-                hidden>
+            <textarea
+                id="gestaoPaste"
+                class="form-control"
+                rows="7"
+                placeholder="Cole aqui a Gestão de Escala diretamente do Excel (Ctrl+V).
+
+A leitura será feita automaticamente ao colar."></textarea>
+
+            <div id="gestaoPasteStatus" class="small text-secondary"></div>
 
             <small class="text-secondary fw-bold">
 
@@ -105,7 +109,7 @@
                 id="btnExcel"
                 class="btn btn-success">
 
-                Carregar Gestão Diária 
+                Ler Gestão Colada
 
             </button>
 

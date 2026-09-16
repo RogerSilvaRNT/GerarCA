@@ -10,7 +10,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 ==================================================*/
 
 const pdfInput = document.getElementById("pdf");
-const excelInput = document.getElementById("excel");
+const gestaoPaste = document.getElementById("gestaoPaste");
+const gestaoPasteStatus = document.getElementById("gestaoPasteStatus");
 
 const btnPDF = document.getElementById("btnPDF");
 const btnExcel = document.getElementById("btnExcel");
@@ -123,29 +124,62 @@ pdfInput.addEventListener("change",()=>{
 });
 
 //======================
-// GESTÃO
+// GESTÃO DE ESCALA — COLAGEM DIRETA DO EXCEL
 //======================
 
-btnExcel.addEventListener("click",()=>{
+function processarGestaoColada(texto){
 
-    excelInput.click();
+    const conteudo = String(texto || "").trim();
 
-});
-
-excelInput.addEventListener("change",()=>{
-
-    if(excelInput.files.length){
-
-        carregarGestao();
-
-        document.getElementById("statusGestao").textContent =
-        "Carregada";
-
-        document.getElementById("statusGestao").className =
-        "fw-bold text-success";
-
+    if(!conteudo){
+        alert("Cole os dados da Gestão de Escala.");
+        return false;
     }
 
+    try{
+        lerGestaoTexto(conteudo);
+
+        if(gestaoPasteStatus){
+            gestaoPasteStatus.textContent =
+                `✓ Gestão lida automaticamente: ${operadoresPostos.length} operadores`;
+            gestaoPasteStatus.className = "small fw-bold text-success";
+        }
+
+        document.getElementById("statusGestao").textContent =
+            `${operadoresPostos.length} operadores`;
+        document.getElementById("statusGestao").className =
+            "fw-bold text-success";
+        document.getElementById("statusTurno").textContent =
+            turnoAtual || "Gestão colada";
+
+        return true;
+    }catch(erro){
+        console.error(erro);
+        if(gestaoPasteStatus){
+            gestaoPasteStatus.textContent = "✗ Não foi possível interpretar os dados colados.";
+            gestaoPasteStatus.className = "small fw-bold text-danger";
+        }
+        alert("Não foi possível ler a Gestão de Escala colada. Verifique se a primeira linha contém os cabeçalhos.");
+        return false;
+    }
+}
+
+if(gestaoPaste){
+    gestaoPaste.addEventListener("paste",(evento)=>{
+        const texto = evento.clipboardData?.getData("text/plain") || "";
+        setTimeout(()=>{
+            if(texto.trim()) processarGestaoColada(texto);
+        },0);
+    });
+}
+
+btnExcel.addEventListener("click",()=>{
+    if(gestaoPaste?.value?.trim()){
+        processarGestaoColada(gestaoPaste.value);
+    }else{
+        alert("Cole a Gestão de Escala na caixa de texto acima.");
+        gestaoPaste?.focus();
+    }
 });
 
 //======================
@@ -217,47 +251,6 @@ document.getElementById("statusPDF").className =
     CARREGAR GESTÃO
 ==================================================*/
 
-async function carregarGestao(){
-
-    if(!excelInput.files.length){
-
-        alert("Selecione a Gestão de Escala.");
-
-        return;
-
-    }
-
-    operadores = [];
-
-    operadoresPostos = [];
-
-    operadoresMonitoria = [];
-
-    operadoresApoio = [];
-
-    operadoresIgnorados = [];
-
-    await lerExcel(excelInput.files[0]);
-
-    console.table(
-        operadores.map(op=>({
-            nome: op.nome,
-            local: op.local,
-            maquinista: op.maquinista,
-            hora: op.horaMaquinista
-        }))
-    );
-
-    document.getElementById("statusGestao").textContent =
-        `${operadoresPostos.length} operadores`;
-
-    document.getElementById("statusGestao").className =
-        "fw-bold text-success";
-
-    document.getElementById("statusTurno").textContent =
-        turnoAtual;
-
-}
 /*==================================================
     CRUZAR DADOS
 ==================================================*/
@@ -570,7 +563,169 @@ function processarLinhaPDF(linha){
 
 }
 /*==================================================
-    LEITURA EXCEL (UNIVERSAL)
+    LEITURA DA GESTÃO COLADA DIRETAMENTE DO EXCEL
+==================================================*/
+
+function normalizarCabecalhoGestao(valor){
+    return String(valor ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function separarLinhaGestao(linha){
+    if(linha.includes("\t")) return linha.split("\t");
+    if(/^\s*\|/.test(linha)){
+        return linha.replace(/^\s*\|\s*/,"")
+            .replace(/\s*\|\s*$/i,"")
+            .split("|")
+            .map(v=>v.trim());
+    }
+    return linha.split(/\s{2,}/);
+}
+
+function lerGestaoTexto(texto){
+
+    const linhasBrutas = String(texto || "")
+        .replace(/\r/g, "")
+        .split("\n")
+        .map(l=>l.trimEnd());
+
+    // Aceita tanto a colagem real do Excel (TAB) quanto a tabela Markdown
+    // usada para conferência/exemplo.
+    const linhas = linhasBrutas
+        .filter(l=>l.trim())
+        .filter(l=>!/^\s*\|?\s*:?-{2,}/.test(l));
+
+    if(!linhas.length) throw new Error("Nenhum dado encontrado.");
+
+    const tabela = linhas.map(separarLinhaGestao);
+    const cab = tabela[0].map(normalizarCabecalhoGestao);
+
+    const localizarColuna = (...nomes) => {
+        const normalizados = nomes.map(normalizarCabecalhoGestao);
+        return cab.findIndex(c=>normalizados.includes(c));
+    };
+
+    const idxNome = localizarColuna("NOME COMPLETO","NOME DO OPERADOR","NOME");
+    const idxLocal = localizarColuna("LOCAL");
+    const idxEntradaHora = localizarColuna("ENTRADA HORA","HORA ENTRADA","ENTRADA HORA");
+    const idxEntrada = localizarColuna("ENTRADA");
+    const idxMaquinista = localizarColuna("MAQUINISTA","MAQUINISTA CPTM");
+    const idxObs = localizarColuna("OBSERVACOES","OBSERVAÇÕES","OBSERVACAO","OBSERVAÇÃO");
+
+    if(idxNome < 0) throw new Error("Cabeçalho NOME COMPLETO não encontrado.");
+
+    operadores=[];
+    operadoresPostos=[];
+    operadoresMonitoria=[];
+    operadoresApoio=[];
+    operadoresIgnorados=[];
+
+    for(let i=1;i<tabela.length;i++){
+        const linha=tabela[i];
+        const nomeCompleto=String(linha[idxNome] ?? "").trim();
+        if(!nomeCompleto) continue;
+
+        const local=idxLocal>=0 ? String(linha[idxLocal] ?? "").trim() : "";
+        let entrada="";
+        if(idxEntradaHora>=0) entrada=formatarHora(linha[idxEntradaHora]);
+        if(!entrada && idxEntrada>=0) entrada=formatarHora(linha[idxEntrada]);
+
+        const situacao=idxEntrada>=0 ? String(linha[idxEntrada] ?? "").trim() : "";
+        const observacoes=idxObs>=0 ? String(linha[idxObs] ?? "").trim() : "";
+        const texto=idxMaquinista>=0 ? String(linha[idxMaquinista] ?? "").trim() : "";
+
+        const linhaGestaoTexto=linha.map(v=>String(v ?? "").trim().toUpperCase()).join(" ");
+        const bloqueadoEscala=/\bESCALA\b|\bESCALANTE\b/.test(linhaGestaoTexto);
+        const localMaiusculo=local.toUpperCase();
+
+        let grupo="";
+        if(localMaiusculo==="SUZ") grupo="SUZ";
+        else if(localMaiusculo==="BAS") grupo="BAS";
+        else if(localMaiusculo==="EGO") grupo="EGO";
+
+        const operador={
+            nome:nomeCompleto,
+            nomeCompleto,
+            local,
+            grupo,
+            posto:local,
+            hora:entrada,
+            entrada,
+            situacao,
+            observacoes,
+            bloqueadoEscala
+        };
+
+        if(localMaiusculo.includes("CCM") || localMaiusculo.includes("AUS") ||
+           localMaiusculo.includes("RETORNO") || localMaiusculo.includes("PSO") ||
+           localMaiusculo.includes("FISCAL")){
+            operadoresIgnorados.push(operador);
+        }else if(localMaiusculo.includes("APOIO")){
+            operadoresApoio.push(operador);
+            operadoresPostos.push(operador);
+        }else{
+            operadoresMonitoria.push(operador);
+            operadoresPostos.push(operador);
+        }
+
+        // Mantém a estrutura usada pelo algoritmo atual para os vínculos
+        // de maquinista que eventualmente vierem na Gestão colada.
+        if(!texto) continue;
+
+        if(/^LOCOMOTIVA/i.test(texto) || /^EQUIPE LOCOMOTIVA/i.test(texto) || /^MQT/i.test(texto)) continue;
+
+        const regexNovo=/^(.*?)(?:\s+(\d{2}:\d{2}|\d{4}))?$/;
+        const regexAntigo=/([A-ZÀ-Ú'. ]+?)\s+(\d{4})/gi;
+
+        if(texto.includes("/")){
+            let item;
+            while((item=regexAntigo.exec(texto))!==null){
+                operadores.push({
+                    ...operador,
+                    maquinista:item[1].trim(),
+                    horaMaquinista:item[2]
+                });
+            }
+        }else{
+            let maquinista=texto;
+            let hora="";
+            const partes=texto.match(regexNovo);
+            if(partes){
+                maquinista=partes[1].trim();
+                if(partes[2]) hora=partes[2].replace(":","");
+            }
+            operadores.push({
+                ...operador,
+                maquinista,
+                horaMaquinista:hora
+            });
+        }
+    }
+
+    // O turno pode ser informado pelo texto da colagem (quando houver uma
+    // célula/linha com MANHÃ, TARDE ou NOITE). Caso contrário, mantém o turno
+    // já selecionado no sistema.
+    const textoNormalizado=String(texto).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+    const turnoDetectado=(textoNormalizado.match(/\b(MANHA|TARDE|NOITE)\b/)||[])[1];
+    if(turnoDetectado) turnoAtual=turnoDetectado;
+
+    resultado.value =
+`GESTÃO DE ESCALA
+
+Turno..................... ${turnoAtual || "NÃO INFORMADO"}
+Operadores................ ${operadoresPostos.length}
+
+Gestão de Escala lida automaticamente após a colagem.`;
+
+    console.table(operadoresPostos);
+}
+
+/*==================================================
+    LEITURA EXCEL (UNIVERSAL) — LEGADO
 ==================================================*/
 
 async function lerExcel(file){
@@ -970,7 +1125,6 @@ function limparTudo(){
 
     pdfInput.value = "";
 
-    excelInput.value = "";
 
     resultado.value = "";
 
@@ -1111,101 +1265,6 @@ function extrairMaquinistas(texto){
     console.log("Vagas:", vagasCPTM.length);
     console.log("Ocorrências:", ocorrenciasPDF.length);
 
-}
-
-/*==================================================
-    EXCEL CA_CPTM - GERADO AO CARREGAR O PDF
-==================================================*/
-function gerarExcelCA_CPTM(){
-
-    if(!maquinistas.length && !ocorrenciasPDF.length){
-        return;
-    }
-
-    // Une os maquinistas normais às linhas que possuem ocorrência,
-    // preservando também os registros que foram bloqueados/retidos por ocorrência.
-    const mapa = new Map();
-
-    maquinistas.forEach(m=>{
-        const chave = [m.posto,m.nome,m.entrada].join("|").toUpperCase();
-        mapa.set(chave,{
-            posto:m.posto || "",
-            nome:m.nome || "",
-            hora:formatarHora4(m.entrada || ""),
-            ocorrencias:""
-        });
-    });
-
-    ocorrenciasPDF.forEach(o=>{
-        const chave = [o.posto,o.nome,o.entrada].join("|").toUpperCase();
-        const existente = mapa.get(chave);
-
-        if(existente){
-            existente.ocorrencias = o.observacao || "";
-        }else{
-            mapa.set(chave,{
-                posto:o.posto || "",
-                nome:o.nome || "",
-                hora:formatarHora4(o.entrada || ""),
-                ocorrencias:o.observacao || ""
-            });
-        }
-    });
-
-    const registros = Array.from(mapa.values()).sort((a,b)=>{
-        const difHora = converterHora(a.hora) - converterHora(b.hora);
-        if(difHora !== 0) return difHora;
-        return a.nome.localeCompare(b.nome);
-    });
-
-    const linhas = [[
-        "POSTO",
-        "NOME + HORÁRIO",
-        "OCORRÊNCIAS"
-    ]];
-
-    registros.forEach(r=>{
-        linhas.push([
-            r.posto,
-            `${r.nome} ${r.hora}`.trim(),
-            r.ocorrencias || ""
-        ]);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(linhas);
-    ws["!cols"] = [
-        {wch:30},
-        {wch:52},
-        {wch:60}
-    ];
-
-    // Cabeçalho e células de dados como texto para preservar horários como 0500.
-    for(let c=0;c<3;c++){
-        const cell = ws[XLSX.utils.encode_cell({r:0,c})];
-        if(cell) cell.s = {font:{bold:true}};
-    }
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"CA_CPTM");
-
-    const agora = new Date();
-    const dataArquivo = [
-        String(agora.getDate()).padStart(2,"0"),
-        String(agora.getMonth()+1).padStart(2,"0"),
-        agora.getFullYear()
-    ].join("-");
-
-    const turnoArquivo = String(turnoCA || "TURNO")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g,"")
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g,"_")
-        .replace(/^_|_$/g,"");
-
-    XLSX.writeFile(
-        wb,
-        `CA_CPTM_${dataArquivo}_${turnoArquivo}.xlsx`
-    );
 }
 
 /*==================================================
@@ -2110,11 +2169,12 @@ Operador...: SEM OPERADOR TRIVIA
     document.getElementById("semOperador").textContent =
         maquinistasSemOperador.length;
             //==================================================
-    // RESULTADO — somente os 3 blocos solicitados
+    // RESUMO
     //==================================================
 
     resultado.value =
-`==================================================
+`
+==================================================
 RESUMO
 ==================================================
 
@@ -2129,19 +2189,19 @@ Operadores TRIVIA sem Monitoria... ${operadoresSemMonitoria.length}
 Maquinistas CPTM sem Operador..... ${maquinistasSemOperador.length}
 `;
 
-    //==================================================
-    // MAQUINISTAS SEM OPERADOR
-    //==================================================
-
-    if(maquinistasSemOperador.length){
+    if(duplasRealizadas.length){
         resultado.value +=
-`\n==================================================
-MAQUINISTAS CPTM SEM OPERADOR
+`
 ==================================================
-\n`;
+DUPLAS REALIZADAS POR COMPATIBILIDADE DE HORÁRIO
+==================================================
 
-        maquinistasSemOperador.forEach(m=>{
-            resultado.value += `${m.posto} ${m.escala} ${m.nome} ${m.hora}\n`;
+`;
+
+        duplasRealizadas.forEach(d=>{
+            resultado.value +=
+`${d.maquinista} ${d.horaMaquinista} / ${d.operador1} ${d.hora1} + ${d.operador2} ${d.hora2} - DUPLA
+`;
         });
     }
 
@@ -2150,54 +2210,178 @@ MAQUINISTAS CPTM SEM OPERADOR
     //==================================================
 
     if(operadoresSemMonitoria.length){
+
         resultado.value +=
-`\n==================================================
+`
+==================================================
 OPERADORES TRIVIA SEM MONITORIA CPTM
 ==================================================
-\n`;
+
+`;
 
         operadoresSemMonitoria
             .sort((a,b)=>converterHora(a.hora)-converterHora(b.hora))
             .forEach(op=>{
-                resultado.value += `${op.operador} ${op.hora} ${op.local}\n`;
+
+                resultado.value +=
+`${op.operador} ${op.hora} ${op.local}
+`;
+
             });
+
     }
 
-    // As ocorrências do PDF e as vagas continuam sendo processadas e
-    // gravadas em dadosExcel para exportação, mas não aparecem no Resultado.
-    if(ocorrenciasPDF.length){
-        ocorrenciasPDF.forEach(o=>{
-            dadosExcel.push({
-                posto: o.posto,
-                escala: o.escala,
-                maquinista: o.nome,
-                hora: o.entrada,
-                operador: "",
-                local: "",
-                status: "OCORRÊNCIA PDF",
-                monitoria: "",
-                observacao: o.observacao
-            });
+    //==================================================
+    // MAQUINISTAS SEM OPERADOR
+    //==================================================
+
+    if(maquinistasSemOperador.length){
+
+        resultado.value +=
+`
+
+==================================================
+MAQUINISTAS CPTM SEM OPERADOR
+==================================================
+
+`;
+
+        maquinistasSemOperador.forEach(m=>{
+
+            resultado.value +=
+`${m.posto} ${m.escala} ${m.nome} ${m.hora}
+`;
+
         });
+
     }
+//==============================================
+// OCORRÊNCIAS DO PDF
+//==============================================
+
+if(ocorrenciasPDF.length){
+
+    resultado.value +=
+`
+==================================================
+OCORRÊNCIAS DO PDF
+==================================================
+
+`;
+
+    ocorrenciasPDF.forEach(o=>{
+
+        resultado.value +=
+`${o.posto}
+Escala......: ${o.escala}
+Nome........: ${o.nome}
+Entrada.....: ${o.entrada}
+Ocorrência..: ${o.observacao}
+
+--------------------------------------------------
+
+`;
+
+        dadosExcel.push({
+
+            posto: o.posto,
+
+            escala: o.escala,
+
+            maquinista: o.nome,
+
+            hora: o.entrada,
+
+            operador: "",
+
+            local: "",
+
+            status: "OCORRÊNCIA PDF",
+
+            monitoria: "",
+
+            observacao: o.observacao
+
+        });
+
+    });
+
+}
+    //==================================================
+    // VAGAS CPTM
+    //==================================================
 
     if(vagasCPTM.length){
+
+        resultado.value +=
+`
+==================================================
+VAGAS CPTM
+==================================================
+
+`;
+
         vagasCPTM
             .sort((a,b)=>converterHora(a.hora)-converterHora(b.hora))
             .forEach(v=>{
+
+                resultado.value +=
+`${v.posto} ${v.escala} ${v.hora}
+`;
+
                 dadosExcel.push({
+
                     posto:v.posto,
+
                     escala:v.escala,
+
                     maquinista:"",
+
                     hora:v.hora,
+
                     operador:"",
+
                     local:"",
+
                     status:"VAGA CPTM",
+
                     monitoria:"",
                     observacao: ""
+
                 });
+
             });
+
     }
+
+    //==================================================
+    // LISTA SIMPLES
+    //==================================================
+
+    resultado.value +=
+`
+==================================================
+LISTA SIMPLES PARA ESCALA
+MONITORIA CPTM x TRIVIA
+==================================================
+
+`;
+
+    resultado.value += listaSimples;
+
+        //==================================================
+    // RELATÓRIO DETALHADO POR POSTO
+    //==================================================
+
+    resultado.value +=
+`
+==================================================
+RELATÓRIO DETALHADO POR POSTO
+==================================================
+
+`;
+
+    resultado.value += relatorioPostos;
 
     console.table(listaOperadores);
 
