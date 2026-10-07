@@ -519,7 +519,7 @@ function processarLinhaPDF(linha){
 
     ];
 
-    const encontrou = palavras.some(p=>
+    const encontrou = ehFiscalPatioLuz({posto, observacao:restante}) || palavras.some(p=>
 
         restante.includes(p)
 
@@ -1208,6 +1208,8 @@ function extrairMaquinistas(texto){
         //=========================
 
         if(
+
+            ehFiscalPatioLuz({posto, observacao}) ||
 
             observacao.includes("AUSENCIA") ||
 
@@ -2168,220 +2170,17 @@ Operador...: SEM OPERADOR TRIVIA
 
     document.getElementById("semOperador").textContent =
         maquinistasSemOperador.length;
-            //==================================================
-    // RESUMO
-    //==================================================
-
-    resultado.value =
-`
-==================================================
-RESUMO
-==================================================
-
-Operadores TRIVIA................. ${listaOperadores.length}
-
-Maquinistas CPTM.................. ${maquinistas.length}
-
-Monitorias CPTM x TRIVIA.......... ${monitorados}
-
-Operadores TRIVIA sem Monitoria... ${operadoresSemMonitoria.length}
-
-Maquinistas CPTM sem Operador..... ${maquinistasSemOperador.length}
-`;
-
-    if(duplasRealizadas.length){
-        resultado.value +=
-`
-==================================================
-DUPLAS REALIZADAS POR COMPATIBILIDADE DE HORÁRIO
-==================================================
-
-`;
-
-        duplasRealizadas.forEach(d=>{
-            resultado.value +=
-`${d.maquinista} ${d.horaMaquinista} / ${d.operador1} ${d.hora1} + ${d.operador2} ${d.hora2} - DUPLA
-`;
-        });
-    }
-
-    //==================================================
-    // OPERADORES SEM MONITORIA
-    //==================================================
-
-    if(operadoresSemMonitoria.length){
-
-        resultado.value +=
-`
-==================================================
-OPERADORES TRIVIA SEM MONITORIA CPTM
-==================================================
-
-`;
-
-        operadoresSemMonitoria
-            .sort((a,b)=>converterHora(a.hora)-converterHora(b.hora))
-            .forEach(op=>{
-
-                resultado.value +=
-`${op.operador} ${op.hora} ${op.local}
-`;
-
-            });
-
-    }
-
-    //==================================================
-    // MAQUINISTAS SEM OPERADOR
-    //==================================================
-
-    if(maquinistasSemOperador.length){
-
-        resultado.value +=
-`
-
-==================================================
-MAQUINISTAS CPTM SEM OPERADOR
-==================================================
-
-`;
-
-        maquinistasSemOperador.forEach(m=>{
-
-            resultado.value +=
-`${m.posto} ${m.escala} ${m.nome} ${m.hora}
-`;
-
-        });
-
-    }
-//==============================================
-// OCORRÊNCIAS DO PDF
-//==============================================
-
-if(ocorrenciasPDF.length){
-
-    resultado.value +=
-`
-==================================================
-OCORRÊNCIAS DO PDF
-==================================================
-
-`;
-
-    ocorrenciasPDF.forEach(o=>{
-
-        resultado.value +=
-`${o.posto}
-Escala......: ${o.escala}
-Nome........: ${o.nome}
-Entrada.....: ${o.entrada}
-Ocorrência..: ${o.observacao}
-
---------------------------------------------------
-
-`;
-
-        dadosExcel.push({
-
-            posto: o.posto,
-
-            escala: o.escala,
-
-            maquinista: o.nome,
-
-            hora: o.entrada,
-
-            operador: "",
-
-            local: "",
-
-            status: "OCORRÊNCIA PDF",
-
-            monitoria: "",
-
-            observacao: o.observacao
-
-        });
-
-    });
-
-}
-    //==================================================
-    // VAGAS CPTM
-    //==================================================
-
-    if(vagasCPTM.length){
-
-        resultado.value +=
-`
-==================================================
-VAGAS CPTM
-==================================================
-
-`;
-
-        vagasCPTM
-            .sort((a,b)=>converterHora(a.hora)-converterHora(b.hora))
-            .forEach(v=>{
-
-                resultado.value +=
-`${v.posto} ${v.escala} ${v.hora}
-`;
-
-                dadosExcel.push({
-
-                    posto:v.posto,
-
-                    escala:v.escala,
-
-                    maquinista:"",
-
-                    hora:v.hora,
-
-                    operador:"",
-
-                    local:"",
-
-                    status:"VAGA CPTM",
-
-                    monitoria:"",
-                    observacao: ""
-
-                });
-
-            });
-
-    }
-
-    //==================================================
-    // LISTA SIMPLES
-    //==================================================
-
-    resultado.value +=
-`
-==================================================
-LISTA SIMPLES PARA ESCALA
-MONITORIA CPTM x TRIVIA
-==================================================
-
-`;
-
-    resultado.value += listaSimples;
-
-        //==================================================
-    // RELATÓRIO DETALHADO POR POSTO
-    //==================================================
-
-    resultado.value +=
-`
-==================================================
-RELATÓRIO DETALHADO POR POSTO
-==================================================
-
-`;
-
-    resultado.value += relatorioPostos;
+    // Preservar os registros adicionais usados na exportação.
+    ocorrenciasPDF.forEach(o=>dadosExcel.push({
+        posto:o.posto, escala:o.escala, maquinista:o.nome, hora:o.entrada,
+        operador:"", local:"", status:"OCORRÊNCIA PDF", monitoria:"",
+        observacao:o.observacao
+    }));
+    vagasCPTM.forEach(v=>dadosExcel.push({
+        posto:v.posto, escala:v.escala, maquinista:"", hora:v.hora,
+        operador:"", local:"", status:"VAGA CPTM", monitoria:"", observacao:""
+    }));
+    mostrarResultadoGestao();
 
     console.table(listaOperadores);
 
@@ -2715,7 +2514,9 @@ function exportarExcel(){
     // APRESENTAÇÃO, inclusive bloqueados e sem operador.
     // ==================================================
     const mapaMaquinistas = new Map();
-    (maquinistas || []).forEach(m=>{
+    [...(maquinistas || []), ...(ocorrenciasPDF || []).filter(m=>
+        ehFiscalPatioLuz(m) || ehMaquinista0010(m)
+    )].forEach(m=>{
         const chave = [m.posto,m.nome,m.entrada,m.escala].join("|").toUpperCase();
         if(!mapaMaquinistas.has(chave)) mapaMaquinistas.set(chave,m);
     });
@@ -2775,10 +2576,21 @@ function exportarExcel(){
         ]);
     }
 
+    // Numeração dinâmica das sobras, com fórmulas comuns do Excel.
+    linhas[0][8] = "ORDEM SEM MONITORIA";
+    let ordemSobra = 0;
+    for(let i=1; i<linhas.length; i++){
+        const row = i+1;
+        const semPar = linhas[i][1] && !String(linhas[i][2]).trim() && !String(linhas[i][4]).trim();
+        linhas[i][8] = {
+            t:semPar ? "n" : "s", v:semPar ? ++ordemSobra : "",
+            f:`IF(AND(B${row}<>"",LEN(TRIM(C${row}))=0,LEN(TRIM(E${row}))=0),COUNT($I$1:I${row-1})+1,"")`
+        };
+    }
     const ws=XLSX.utils.aoa_to_sheet(linhas);
     ws["!cols"]=[
         {wch:24},{wch:48},{wch:42},{wch:28},
-        {wch:42},{wch:34},{wch:42},{wch:30}
+        {wch:42},{wch:34},{wch:42},{wch:30},{hidden:true}
     ];
 
     // ==================================================
@@ -2787,33 +2599,13 @@ function exportarExcel(){
     // Nome e horário são dados fixos. Somente a coluna
     // MAQUINISTA CPTM + HORÁRIO é fórmula ligada à MONITORIA.
     // ==================================================
-    const mapaOperadores = new Map();
-
-    (operadoresPostos || []).forEach(op=>{
-        const nome = String(op.nome || op.nomeCompleto || "").trim();
-        if(!nome) return;
-        const chave = normalizarNomeRestricao(nome);
-        if(!mapaOperadores.has(chave)){
-            mapaOperadores.set(chave,{
-                nome,
-                hora:formatarHora4(op.hora || op.entrada || ""),
-                ordem:mapaOperadores.size
-            });
-        }
-    });
-
-    const todosOperadoresGestao = Array.from(mapaOperadores.values()).sort((a,b)=>{
-        const ha = converterHora(a.hora);
-        const hb = converterHora(b.hora);
-        if(ha !== hb) return ha-hb;
-        return a.ordem-b.ordem;
-    });
+    const todosOperadoresGestao = listarOperadoresGestao();
 
     // A coluna DUPLA é dinâmica: se uma dupla for criada/alterada
     // manualmente na aba MONITORIA (preenchendo a coluna E), a GESTAO
     // passa a identificar automaticamente os dois operadores como
     // DUPLA 1, DUPLA 2, etc., sem alterar nome ou horário do operador.
-    const gestao=[["NOME DO OPERADOR","HORÁRIO DO OPERADOR","MAQUINISTA CPTM + HORÁRIO","DUPLA"]];
+    const gestao=[["NOME DO OPERADOR","HORÁRIO DO OPERADOR","MAQUINISTA CPTM + HORÁRIO","DUPLA","MAQUINISTAS SEM MONITORIA"]];
 
     todosOperadoresGestao.forEach((op,index)=>{
         const row=index+2;
@@ -2827,10 +2619,24 @@ function exportarExcel(){
         ]);
     });
 
+    // Lista compacta vinculada aos operadores principal (C) e da dupla (E).
+    // Preencher ou apagar qualquer um dos dois atualiza as sobras no Excel.
+    const ultimaLinha = registrosMaquinistas.length + 1;
+    const sobrasIniciais = linhas.slice(1).filter(l=>l[1] && !String(l[2]).trim() && !String(l[4]).trim());
+    for(let index=0; index<registrosMaquinistas.length; index++){
+        const row = index + 2;
+        if(!gestao[index+1]) gestao[index+1] = ["","","",""];
+        gestao[index+1][4] = {
+            t:"s", v:sobrasIniciais[index] ? sobrasIniciais[index][1] : "",
+            f:`IFERROR(INDEX(Monitoria!$B$2:$B$${ultimaLinha},MATCH(ROWS($E$2:E${row}),Monitoria!$I$2:$I$${ultimaLinha},0)),"")`
+        };
+    }
+
     const wsGestao=XLSX.utils.aoa_to_sheet(gestao);
-    wsGestao["!cols"]=[{wch:42},{wch:28},{wch:48},{wch:14}];
+    wsGestao["!cols"]=[{wch:42},{wch:28},{wch:48},{wch:14},{wch:52}];
 
     const wb=XLSX.utils.book_new();
+    wb.Workbook = {CalcPr:{calcMode:"auto",fullCalcOnLoad:true,forceFullCalc:true}};
     XLSX.utils.book_append_sheet(wb,ws,"Monitoria");
     XLSX.utils.book_append_sheet(wb,wsGestao,"GESTAO");
 
@@ -2842,4 +2648,119 @@ function exportarExcel(){
     ].join("-");
 
     XLSX.writeFile(wb,`monitoria (${dataArquivo}).xlsm`);
+}
+
+// Mesma origem, deduplicação e ordenação da aba GESTAO do Excel.
+function listarOperadoresGestao(){
+    const mapa = new Map();
+    (operadoresPostos || []).forEach(op=>{
+        const nome = String(op.nome || op.nomeCompleto || "").trim();
+        const chave = normalizarNomeRestricao(nome);
+        if(nome && !mapa.has(chave)){
+            mapa.set(chave,{
+                nome,
+                hora:formatarHora4(op.hora || op.entrada || ""),
+                ordem:mapa.size
+            });
+        }
+    });
+    return Array.from(mapa.values()).sort((a,b)=>
+        converterHora(a.hora)-converterHora(b.hora) || a.ordem-b.ordem
+    );
+}
+
+function mostrarResultadoGestao(){
+    const vinculos = new Map();
+    let numeroDupla = 0;
+    // Seguir a ordem da aba Monitoria para manter a numeração das duplas.
+    const registros = (dadosExcel || []).filter(d=>
+        d.status === "MONITORADO" || d.status === "MONITORADO - DUPLA"
+    ).slice().sort((a,b)=>
+        converterHora(a.hora)-converterHora(b.hora) ||
+        String(a.posto || "").localeCompare(String(b.posto || "")) ||
+        String(a.maquinista || "").localeCompare(String(b.maquinista || ""))
+    );
+    registros.forEach(d=>{
+        const dupla = d.segundoOperador ? `DUPLA ${++numeroDupla}` : "";
+        const vinculo = {
+            maquinista:`${d.maquinista} ${formatarHora4(d.hora)}`.trim(), dupla
+        };
+        [d.nomeCompletoOperador || d.operador, d.segundoOperador].forEach(nome=>{
+            if(nome){
+                const chave = normalizarNomeRestricao(nome);
+                if(!vinculos.has(chave)) vinculos.set(chave,vinculo);
+            }
+        });
+    });
+    const todos = listarOperadoresGestao();
+    const nomeHora = pessoa=>`${pessoa.nome} ${formatarHora4(pessoa.hora)}`.trim();
+    const separador = "==================================================";
+    const blocos = [
+        `${separador}\nGESTÃO — MONITORIA CPTM x TRIVIA\n${separador}\n\nOPERADOR + HORÁRIO | MAQUINISTA CPTM + HORÁRIO | DUPLA`,
+        ...todos.map(op=>{
+            const par = vinculos.get(normalizarNomeRestricao(op.nome));
+            return `${nomeHora(op)} | ${par ? par.maquinista : "SEM MAQUINISTA"} | ${par ? par.dupla : ""}`;
+        }),
+        `\n${separador}\nMAQUINISTAS CPTM SEM MONITORIA\n${separador}\n`,
+        ...listarMaquinistasSemMonitoriaPorLocal(nomeHora),
+        `\n${separador}\nOPERADORES TRIVIA SEM MAQUINISTA\n${separador}\n`,
+        ...(() => {
+            const semPar = todos.filter(op=>!vinculos.has(normalizarNomeRestricao(op.nome)));
+            return semPar.length ? semPar.map(nomeHora) : ["Nenhum."];
+        })()
+    ];
+    resultado.value = blocos.join("\n") + "\n";
+}
+
+function listarMaquinistasSemMonitoriaPorLocal(nomeHora){
+    const grupos = {
+        suz:[], bfu:[], luz:[], mqt:[], outros:[]
+    };
+    const fiscalLuz = ehFiscalPatioLuz;
+    maquinistasSemOperador.forEach(m=>{
+        const posto = normalizarNomeRestricao(m.posto);
+        if(ehMaquinista0010(m)) grupos.mqt.push(m);
+        else if(fiscalLuz(m)) grupos.luz.push(m);
+        else if(/\bBFU\s*-\s*05\b/.test(posto)) grupos.bfu.push(m);
+        else if(/\bSUZ\b/.test(posto)) grupos.suz.push(m);
+        else grupos.outros.push(m);
+    });
+    // FISCAL LUZ é importado como ocorrência e não participa do pareamento.
+    ocorrenciasPDF.filter(m=>fiscalLuz(m) && !ehMaquinista0010(m)).forEach(m=>{
+        grupos.luz.push({...m,hora:m.entrada || m.hora});
+    });
+    // A lista MQT vem diretamente do PDF, inclusive registros de ocorrência.
+    [...maquinistas, ...ocorrenciasPDF].filter(ehMaquinista0010).forEach(m=>{
+        grupos.mqt.push({...m,hora:"0010"});
+    });
+    const linhas = [];
+    const titulos = [
+        ["suz","Sobra Maquinista CPTM"],
+        ["mqt","MQT 0010"],
+        ["bfu","BFU"],
+        ["luz","Oficina Luz"]
+    ];
+    if(grupos.outros.length) titulos.push(["outros","Outros maquinistas sem monitoria"]);
+    titulos.forEach(([chave,titulo])=>{
+        const unicos = new Map();
+        grupos[chave].forEach(m=>{
+            const id = `${normalizarNomeRestricao(m.nome)}|${formatarHora4(m.hora)}`;
+            if(!unicos.has(id)) unicos.set(id,m);
+        });
+        const lista = Array.from(unicos.values()).sort((a,b)=>
+            converterHora(a.hora)-converterHora(b.hora) || a.nome.localeCompare(b.nome)
+        );
+        linhas.push(titulo,...(lista.length ? lista.map(nomeHora) : ["Nenhum."]),"");
+    });
+    return linhas;
+}
+
+function ehFiscalPatioLuz(pessoa){
+    return /\bFISCAL\s+(?:DE\s+)?(?:PATIO\s+)?LUZ\b/.test(
+        normalizarNomeRestricao(`${pessoa.posto || ""} ${pessoa.observacao || ""}`)
+    );
+}
+
+function ehMaquinista0010(maquinista){
+    return converterHora(maquinista.entrada || maquinista.hora) === 10;
 }
