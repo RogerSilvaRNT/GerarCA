@@ -2605,7 +2605,7 @@ function exportarExcel(){
     // manualmente na aba MONITORIA (preenchendo a coluna E), a GESTAO
     // passa a identificar automaticamente os dois operadores como
     // DUPLA 1, DUPLA 2, etc., sem alterar nome ou horário do operador.
-    const gestao=[["NOME DO OPERADOR","HORÁRIO DO OPERADOR","MAQUINISTA CPTM + HORÁRIO","DUPLA","MAQUINISTAS SEM MONITORIA"]];
+    const gestao=[["NOME DO OPERADOR","HORÁRIO DO OPERADOR","MAQUINISTA CPTM + HORÁRIO","DUPLA","MAQUINISTAS SEM MONITORIA","POSTO DO MAQUINISTA"]];
 
     todosOperadoresGestao.forEach((op,index)=>{
         const row=index+2;
@@ -2630,10 +2630,14 @@ function exportarExcel(){
             t:"s", v:sobrasIniciais[index] ? sobrasIniciais[index][1] : "",
             f:`IFERROR(INDEX(Monitoria!$B$2:$B$${ultimaLinha},MATCH(ROWS($E$2:E${row}),Monitoria!$I$2:$I$${ultimaLinha},0)),"")`
         };
+        gestao[index+1][5] = {
+            t:"s", v:sobrasIniciais[index] ? sobrasIniciais[index][0] : "",
+            f:`IFERROR(INDEX(Monitoria!$A$2:$A$${ultimaLinha},MATCH(ROWS($E$2:E${row}),Monitoria!$I$2:$I$${ultimaLinha},0)),"")`
+        };
     }
 
     const wsGestao=XLSX.utils.aoa_to_sheet(gestao);
-    wsGestao["!cols"]=[{wch:42},{wch:28},{wch:48},{wch:14},{wch:52}];
+    wsGestao["!cols"]=[{wch:42},{wch:28},{wch:48},{wch:14},{wch:52},{wch:24}];
 
     const wb=XLSX.utils.book_new();
     wb.Workbook = {CalcPr:{calcMode:"auto",fullCalcOnLoad:true,forceFullCalc:true}};
